@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react'
 import { api, ApiError, type Finding, type MetaStatus } from '../api'
 import { useApp, useHosts, usePoll } from '../state'
 import { Badge, Button, Card, Empty, PageHeader } from '../components/ui'
@@ -12,6 +13,61 @@ function statusTone(status: number): 'green' | 'amber' | 'red' | 'blue' | 'zinc'
   return 'zinc'
 }
 
+type SortKey = 'status' | 'url' | 'length' | 'words' | 'found'
+
+// Numeric columns default to descending (biggest first); URL defaults ascending.
+function defaultDir(k: SortKey): 'asc' | 'desc' {
+  return k === 'url' ? 'asc' : 'desc'
+}
+
+function sortValue(h: Finding, k: SortKey): number | string {
+  switch (k) {
+    case 'status':
+      return Number(h.data?.status)
+    case 'length':
+      return Number(h.data?.length)
+    case 'words':
+      return Number(h.data?.words)
+    case 'found':
+      return new Date(h.createdAt).getTime()
+    case 'url':
+      return String(h.data?.url ?? '')
+  }
+}
+
+function SortTh({
+  label,
+  k,
+  sortKey,
+  sortDir,
+  onSort,
+  className = '',
+}: {
+  label: string
+  k: SortKey
+  sortKey: SortKey
+  sortDir: 'asc' | 'desc'
+  onSort: (k: SortKey) => void
+  className?: string
+}) {
+  const activeCol = sortKey === k
+  const Icon = !activeCol ? ChevronsUpDown : sortDir === 'asc' ? ChevronUp : ChevronDown
+  return (
+    <th className={`px-3 py-2 ${className}`}>
+      <button
+        type="button"
+        onClick={() => onSort(k)}
+        className={`inline-flex items-center gap-1 font-medium uppercase tracking-wide transition hover:text-zinc-300 ${
+          activeCol ? 'text-accent-fg' : 'text-zinc-500'
+        }`}
+      >
+        {label}
+        <Icon size={13} className={activeCol ? 'text-accent-400' : 'text-zinc-600'} />
+      </button>
+    </th>
+  )
+}
+
 export function Fuzzing() {
   const { selected } = useApp()
   const hosts = useHosts(selected)
@@ -23,6 +79,8 @@ export function Fuzzing() {
   const [wordlist, setWordlist] = useState('')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [running, setRunning] = useState(false)
+  const [sortKey, setSortKey] = useState<SortKey>('found')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
 
   useEffect(() => {
     api.meta().then(setMeta).catch(() => setMeta(null))
@@ -41,6 +99,33 @@ export function Fuzzing() {
       .catch(() => {})
   }, [selected])
   usePoll(load, 4000, !!selected)
+
+  function toggleSort(k: SortKey) {
+    if (k === sortKey) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else {
+      setSortKey(k)
+      setSortDir(defaultDir(k))
+    }
+  }
+
+  const sortedHits = useMemo(() => {
+    const arr = [...hits]
+    arr.sort((a, b) => {
+      const va = sortValue(a, sortKey)
+      const vb = sortValue(b, sortKey)
+      let cmp: number
+      if (typeof va === 'string' || typeof vb === 'string') {
+        cmp = String(va).localeCompare(String(vb))
+      } else {
+        // Missing/NaN numbers sink to the bottom regardless of direction.
+        const na = Number.isFinite(va) ? va : -Infinity
+        const nb = Number.isFinite(vb) ? vb : -Infinity
+        cmp = na - nb
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return arr
+  }, [hits, sortKey, sortDir])
 
   if (!selected) return <Empty>Select a domain to view fuzzing results.</Empty>
 
@@ -103,7 +188,7 @@ export function Fuzzing() {
             <select
               value={target}
               onChange={(e) => setTarget(e.target.value)}
-              className="mt-1 block w-64 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-zinc-500"
+              className="mt-1 block w-64 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-accent-500"
             >
               {hosts.length === 0 && <option value={selected.host}>{selected.host}</option>}
               {hosts.map((h) => (
@@ -119,7 +204,7 @@ export function Fuzzing() {
             <select
               value={scheme}
               onChange={(e) => setScheme(e.target.value as 'https' | 'http')}
-              className="mt-1 block rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm"
+              className="mt-1 block rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm"
             >
               <option value="https">https</option>
               <option value="http">http</option>
@@ -131,7 +216,7 @@ export function Fuzzing() {
               value={path}
               onChange={(e) => setPath(e.target.value)}
               placeholder="FUZZ"
-              className={`mt-1 block w-40 rounded-lg border bg-zinc-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-zinc-500 ${pathValid ? 'border-zinc-700' : 'border-red-800'}`}
+              className={`mt-1 block w-40 rounded-lg border bg-ink-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-accent-500 ${pathValid ? 'border-hair' : 'border-red-800'}`}
             />
           </label>
           <label className="text-sm">
@@ -139,7 +224,7 @@ export function Fuzzing() {
             <select
               value={wordlist}
               onChange={(e) => setWordlist(e.target.value)}
-              className="mt-1 block w-64 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm outline-none focus:border-zinc-500"
+              className="mt-1 block w-64 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm outline-none focus:border-accent-500"
             >
               <option value="">default (common.txt)</option>
               {(meta?.wordlists ?? []).map((w) => (
@@ -165,20 +250,20 @@ export function Fuzzing() {
       {hits.length === 0 ? (
         <Empty>No fuzzing hits yet for {selected.host}.</Empty>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-zinc-800">
+        <div className="overflow-hidden rounded-xl border border-hair">
           <table className="w-full text-sm">
-            <thead className="bg-zinc-900/60 text-left text-xs text-zinc-500">
+            <thead className="bg-ink-900/60 text-left text-xs">
               <tr>
-                <th className="px-3 py-2 w-20">Status</th>
-                <th className="px-3 py-2">URL</th>
-                <th className="px-3 py-2 w-24">Length</th>
-                <th className="px-3 py-2 w-24">Words</th>
-                <th className="px-3 py-2 w-28">Found</th>
+                <SortTh label="Status" k="status" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="w-20" />
+                <SortTh label="URL" k="url" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                <SortTh label="Length" k="length" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="w-24" />
+                <SortTh label="Words" k="words" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="w-24" />
+                <SortTh label="Found" k="found" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} className="w-28" />
               </tr>
             </thead>
             <tbody>
-              {hits.map((h) => (
-                <tr key={h.id} className="border-t border-zinc-800/60">
+              {sortedHits.map((h) => (
+                <tr key={h.id} className="border-t border-hair/60">
                   <td className="px-3 py-2">
                     <Badge tone={statusTone(Number(h.data?.status))}>{h.data?.status ?? '?'}</Badge>
                   </td>

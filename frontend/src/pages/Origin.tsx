@@ -98,7 +98,7 @@ export function Origin() {
               </p>
               <div className="mt-3 space-y-2">
                 {data.confirmedOrigins.map((o) => (
-                  <div key={o.ip} className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-sm">
+                  <div key={o.ip} className="flex items-center gap-3 rounded-lg border border-hair bg-ink-900/50 px-3 py-2 text-sm">
                     <Badge tone="red">origin</Badge>
                     <span className="font-mono text-zinc-100">{o.ip}</span>
                     {o.status != null && <span className="text-zinc-500">HTTP {o.status}</span>}
@@ -120,9 +120,9 @@ export function Origin() {
           {data.allCandidates.length > 0 && (
             <Card>
               <h2 className="mb-2 text-sm font-semibold">All candidate IPs</h2>
-              <div className="overflow-hidden rounded-lg border border-zinc-800">
+              <div className="overflow-hidden rounded-lg border border-hair">
                 <table className="w-full text-sm">
-                  <thead className="bg-zinc-900/60 text-left text-xs text-zinc-500">
+                  <thead className="bg-ink-900/60 text-left text-xs text-zinc-500">
                     <tr>
                       <th className="px-3 py-2">IP</th>
                       <th className="px-3 py-2">Reachable</th>
@@ -133,7 +133,7 @@ export function Origin() {
                   </thead>
                   <tbody>
                     {data.allCandidates.map((c) => (
-                      <tr key={c.ip} className="border-t border-zinc-800/60">
+                      <tr key={c.ip} className="border-t border-hair/60">
                         <td className="px-3 py-2 font-mono text-zinc-200">{c.ip}</td>
                         <td className="px-3 py-2 text-zinc-400">{c.reachable ? 'yes' : 'no'}</td>
                         <td className="px-3 py-2 text-zinc-400">{c.status ?? '—'}</td>

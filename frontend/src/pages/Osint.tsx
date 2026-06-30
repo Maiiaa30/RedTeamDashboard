@@ -26,6 +26,7 @@ interface WhoisData {
 interface CrtshData {
   count: number
   sample: string[]
+  source?: string
 }
 
 interface InternetDbData {
@@ -116,12 +117,14 @@ function CrtshCard({ crtsh }: { crtsh: CrtshData | ErrorField | undefined }) {
   if (!crtsh) return null
   return (
     <Card>
-      <SectionTitle>crt.sh</SectionTitle>
+      <SectionTitle>Certificate transparency</SectionTitle>
       {isError(crtsh) ? (
         <ErrorLine message={crtsh.error} />
       ) : (
         <div className="space-y-2">
-          <div className="text-xs text-zinc-500">{crtsh.count} certificates</div>
+          <div className="text-xs text-zinc-500">
+            {crtsh.count} subdomains{crtsh.source ? ` · via ${crtsh.source}` : ''}
+          </div>
           {crtsh.sample?.length > 0 && (
             <div className="space-y-0.5 font-mono text-xs text-zinc-300">
               {crtsh.sample.map((s) => (

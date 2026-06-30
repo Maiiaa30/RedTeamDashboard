@@ -56,7 +56,7 @@ export function TwoFactorPanel({ initialEnabled }: { initialEnabled: boolean }) 
   }
 
   return (
-    <section className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
+    <section className="rounded-xl border border-hair bg-ink-850/60 p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold">Two-factor authentication</h2>
         <span
@@ -90,7 +90,7 @@ export function TwoFactorPanel({ initialEnabled }: { initialEnabled: boolean }) 
             Add this to your authenticator (paste the URL or its secret), then enter the current
             6-digit code to confirm.
           </p>
-          <code className="block break-all rounded-lg border border-zinc-800 bg-zinc-950 p-2 text-xs text-zinc-300">
+          <code className="block break-all rounded-lg border border-hair bg-ink-950 p-2 text-xs text-zinc-300">
             {otpauthUrl}
           </code>
           <div className="flex gap-2">
@@ -99,7 +99,7 @@ export function TwoFactorPanel({ initialEnabled }: { initialEnabled: boolean }) 
               placeholder="123456"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              className="w-32 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm outline-none focus:border-zinc-500"
+              className="w-32 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm outline-none focus:border-accent-500"
             />
             <button
               onClick={enable}
@@ -123,12 +123,12 @@ export function TwoFactorPanel({ initialEnabled }: { initialEnabled: boolean }) 
               placeholder="123456"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              className="w-32 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm outline-none focus:border-zinc-500"
+              className="w-32 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm outline-none focus:border-accent-500"
             />
             <button
               onClick={disable}
               disabled={busy || token.length < 6}
-              className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 disabled:opacity-40"
+              className="rounded-lg border border-hair px-3 py-1.5 text-sm text-zinc-300 hover:bg-ink-800 disabled:opacity-40"
             >
               Disable
             </button>

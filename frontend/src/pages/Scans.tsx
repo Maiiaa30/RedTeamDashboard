@@ -16,7 +16,7 @@ function SchemeSelect({ value, onChange }: { value: Scheme; onChange: (v: Scheme
     <select
       value={value}
       onChange={(e) => onChange(e.target.value as Scheme)}
-      className="mt-1 block rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm outline-none focus:border-zinc-500"
+      className="mt-1 block rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm outline-none focus:border-accent-500"
     >
       <option value="https">https</option>
       <option value="http">http</option>
@@ -126,7 +126,7 @@ export function Scans() {
           <select
             value={target}
             onChange={(e) => setTarget(e.target.value)}
-            className="mt-1 block w-72 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-zinc-500"
+            className="mt-1 block w-72 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-accent-500"
           >
             {hosts.length === 0 && <option value={selected.host}>{selected.host}</option>}
             {hosts.map((h) => (
@@ -154,7 +154,7 @@ export function Scans() {
                 value={ports}
                 onChange={(e) => setPorts(e.target.value)}
                 placeholder="top-100 if blank, e.g. 80,443,8000-8100"
-                className="mt-1 block w-72 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-zinc-500"
+                className="mt-1 block w-72 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-accent-500"
               />
             </label>
             <Button
@@ -181,7 +181,7 @@ export function Scans() {
                 value={severity}
                 onChange={(e) => setSeverity(e.target.value)}
                 placeholder="e.g. medium,high,critical"
-                className="mt-1 block w-64 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-zinc-500"
+                className="mt-1 block w-64 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-accent-500"
               />
             </label>
             <label className="text-sm">
@@ -212,7 +212,7 @@ export function Scans() {
                 value={path}
                 onChange={(e) => setPath(e.target.value)}
                 placeholder="FUZZ"
-                className="mt-1 block w-44 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-zinc-500"
+                className="mt-1 block w-44 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 font-mono text-sm outline-none focus:border-accent-500"
               />
             </label>
             <label className="text-sm">
@@ -220,7 +220,7 @@ export function Scans() {
               <select
                 value={wordlist}
                 onChange={(e) => setWordlist(e.target.value)}
-                className="mt-1 block w-64 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm outline-none focus:border-zinc-500"
+                className="mt-1 block w-64 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm outline-none focus:border-accent-500"
               >
                 <option value="">default (common.txt)</option>
                 {(meta?.wordlists ?? []).map((w) => (

@@ -36,7 +36,7 @@ export function Whois() {
           placeholder="example.com or 8.8.8.8"
           autoFocus
           spellCheck={false}
-          className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm font-mono"
+          className="min-w-0 flex-1 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm font-mono"
         />
         <Button type="submit" variant="loud" disabled={loading || !query.trim()}>
           {loading ? 'Looking up…' : 'Lookup'}
@@ -52,7 +52,7 @@ export function Whois() {
             <Badge tone={result.kind === 'ip' ? 'blue' : 'zinc'}>{result.kind}</Badge>
             <span className="text-xs text-zinc-500">via {result.server}</span>
           </div>
-          <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-all rounded-lg bg-zinc-950/60 p-3 text-xs text-zinc-400">
+          <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-all rounded-lg bg-ink-950/60 p-3 text-xs text-zinc-400">
             {result.raw || '(empty response)'}
           </pre>
         </Card>

@@ -1,6 +1,7 @@
 import { getDomain } from '../../domains/store'
 import { addScoredFinding } from '../../findings/score'
 import { addFinding } from '../../findings/store'
+import { certSpotterSubdomains } from '../../sources/certspotter'
 import { crtShSubdomains } from '../../sources/crtsh'
 import { resolveDns } from '../../sources/dns'
 import { internetDbLookup } from '../../sources/internetdb'
@@ -35,10 +36,20 @@ export async function osintHandler({ params, log }: JobContext) {
     log.warn({ host, err }, 'osint whois failed')
   }
 
-  // crt.sh count (subdomain breadth)
+  // Certificate transparency (subdomain breadth): crt.sh first, falling back to
+  // certspotter (the same CT data from a more reliable API) when crt.sh is slow
+  // or down — so this card shows results instead of a timeout error.
   try {
-    const crt = await crtShSubdomains(host)
-    result.crtsh = { count: crt.length, sample: crt.slice(0, 50) }
+    let ctHosts: string[]
+    let source = 'crt.sh'
+    try {
+      ctHosts = await crtShSubdomains(host)
+    } catch (err) {
+      log.warn({ host, err }, 'crt.sh failed, falling back to certspotter')
+      ctHosts = await certSpotterSubdomains(host)
+      source = 'certspotter (crt.sh unavailable)'
+    }
+    result.crtsh = { count: ctHosts.length, sample: ctHosts.slice(0, 50), source }
   } catch (err) {
     result.crtsh = { error: err instanceof Error ? err.message : String(err) }
   }

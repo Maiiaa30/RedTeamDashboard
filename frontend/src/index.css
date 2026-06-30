@@ -14,4 +14,38 @@ body,
 
 body {
   margin: 0;
+  background: #0d0f15;
+  color: #e7e9ef;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Slim, theme-matched scrollbars so dense panels don't show chunky OS bars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2b3445 transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2b3445;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #3a4457;
+  background-clip: content-box;
+}
+
+/* Indigo focus ring for keyboard users on interactive controls. */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 1px;
 }

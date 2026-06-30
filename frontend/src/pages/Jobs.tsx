@@ -64,7 +64,7 @@ export function Jobs() {
             key={s}
             onClick={() => setFilter(s)}
             className={`rounded-lg px-2.5 py-1 text-xs capitalize ${
-              filter === s ? 'bg-zinc-200 text-zinc-900' : 'border border-zinc-700 text-zinc-400 hover:bg-zinc-800'
+              filter === s ? 'bg-zinc-200 text-zinc-900' : 'border border-hair text-zinc-400 hover:bg-ink-800'
             }`}
           >
             {s}
@@ -75,9 +75,9 @@ export function Jobs() {
       {shown.length === 0 ? (
         <Empty>No jobs{filter !== 'all' ? ` with status “${filter}”` : ' yet'}.</Empty>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-zinc-800">
+        <div className="overflow-hidden rounded-xl border border-hair">
           <table className="w-full text-sm">
-            <thead className="bg-zinc-900/60 text-left text-xs text-zinc-500">
+            <thead className="bg-ink-900/60 text-left text-xs text-zinc-500">
               <tr>
                 <th className="px-3 py-2 w-12">#</th>
                 <th className="px-3 py-2">Type</th>
@@ -95,7 +95,7 @@ export function Jobs() {
                   <Fragment key={j.id}>
                     <tr
                       onClick={() => toggle(j.id)}
-                      className="cursor-pointer border-t border-zinc-800/60 hover:bg-zinc-900/40"
+                      className="cursor-pointer border-t border-hair/60 hover:bg-ink-850/60"
                     >
                       <td className="px-3 py-2 font-mono text-zinc-500">{j.id}</td>
                       <td className="px-3 py-2 font-mono text-xs text-zinc-300">{j.type}</td>
@@ -111,7 +111,7 @@ export function Jobs() {
                       <td className="px-3 py-2 text-zinc-500">{duration(j)}</td>
                     </tr>
                     {open && (
-                      <tr className="border-t border-zinc-800/60 bg-zinc-950/60">
+                      <tr className="border-t border-hair/60 bg-ink-950/60">
                         <td colSpan={6} className="px-3 py-3">
                           <pre
                             className={`max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs ${

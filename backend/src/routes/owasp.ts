@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { DomainValidationError, getDomain, requireActiveAuthorized } from '../domains/store'
+import { getDomain } from '../domains/store'
 import { enqueueJob } from '../jobs/queue'
 import {
   applicableCategories,
@@ -14,19 +14,20 @@ export const owaspRoutes: FastifyPluginAsync = async (app) => {
   // Static catalog + profile keys for the UI.
   app.get('/api/owasp/catalog', async () => ({ catalog: OWASP_CATALOG, profileKeys: PROFILE_KEYS }))
 
-  // Run OWASP tests for a domain. Gated behind active_authorized. Categories are
-  // filtered by the domain's app profile (and optionally an explicit selection).
-  app.post<{ Params: { id: string }; Body: { categoryIds?: string[]; scheme?: string } }>(
+  // Run OWASP tests for a domain. active_authorized runs freely; passive_only
+  // runs only with explicit confirm:true (the UI warns first), matching the
+  // Scans/Fuzzing gate. Categories are filtered by the domain's app profile
+  // (and optionally an explicit selection).
+  app.post<{ Params: { id: string }; Body: { categoryIds?: string[]; scheme?: string; confirm?: boolean } }>(
     '/api/domains/:id/owasp',
     async (request, reply) => {
       const id = Number(request.params.id)
       const domain = getDomain(id)
       if (!domain) return reply.code(404).send({ error: 'domain not found' })
-      try {
-        requireActiveAuthorized(id)
-      } catch (err) {
-        if (err instanceof DomainValidationError) return reply.code(400).send({ error: err.message })
-        throw err
+      if (domain.mode !== 'active_authorized' && request.body?.confirm !== true) {
+        return reply
+          .code(400)
+          .send({ error: `domain "${domain.host}" is passive_only — confirm you are authorized to actively scan it` })
       }
 
       const profile = safeJsonParse<ProfileFlags>(domain.profile, {})

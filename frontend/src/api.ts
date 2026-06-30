@@ -246,8 +246,8 @@ export const api = {
 
   // OWASP testing
   owaspCatalog: () => get<{ catalog: OwaspCategory[]; profileKeys: OwaspProfileKey[] }>('/owasp/catalog'),
-  runOwasp: (id: number, categoryIds?: string[], scheme?: string) =>
-    post<{ jobId: number; categories: string[]; tags: string[] }>(`/domains/${id}/owasp`, { categoryIds, scheme }),
+  runOwasp: (id: number, categoryIds?: string[], scheme?: string, confirm?: boolean) =>
+    post<{ jobId: number; categories: string[]; tags: string[] }>(`/domains/${id}/owasp`, { categoryIds, scheme, confirm }),
 
   // subdomains
   subdomains: (id: number) => get<{ subdomains: Subdomain[] }>(`/domains/${id}/subdomains`),

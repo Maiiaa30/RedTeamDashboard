@@ -100,9 +100,9 @@ export function Screenshots() {
             <button
               key={s.host}
               onClick={() => setLightbox(s)}
-              className="group overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40 text-left hover:border-zinc-600"
+              className="group overflow-hidden rounded-xl border border-hair bg-ink-850/60 text-left hover:border-zinc-600"
             >
-              <div className="flex aspect-[16/10] items-center justify-center overflow-hidden bg-zinc-950">
+              <div className="flex aspect-[16/10] items-center justify-center overflow-hidden bg-ink-950">
                 {failed.has(s.host) ? (
                   <span className="text-xs text-zinc-600">no preview</span>
                 ) : (
@@ -156,7 +156,7 @@ export function Screenshots() {
             src={api.screenshotUrl(selected.id, lightbox.host)}
             alt={lightbox.host}
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[80vh] max-w-5xl rounded-lg border border-zinc-700 object-contain"
+            className="max-h-[80vh] max-w-5xl rounded-lg border border-hair object-contain"
           />
         </div>
       )}

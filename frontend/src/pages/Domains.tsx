@@ -1,14 +1,26 @@
 import { FormEvent, useCallback, useState } from 'react'
+import {
+  Network, Flag, Server, Cable, Bug, Clock, Plus, Search, Radar, Eye,
+  type LucideIcon,
+} from 'lucide-react'
 import { api, ApiError, type DomainMode, type DomainOverview } from '../api'
 import { useApp, usePoll } from '../state'
 import { Badge, Button, Card, Empty, PageHeader } from '../components/ui'
 import { riskFromScore, timeAgo } from '../lib/format'
 
-const RISK_STYLES: Record<string, { dot: string; label: string; tone: 'zinc' | 'blue' | 'amber' | 'red' }> = {
-  none: { dot: 'bg-zinc-600', label: 'no signal', tone: 'zinc' },
-  low: { dot: 'bg-blue-500', label: 'low', tone: 'blue' },
-  medium: { dot: 'bg-amber-500', label: 'medium', tone: 'amber' },
-  high: { dot: 'bg-red-500', label: 'high', tone: 'red' },
+const RISK_STYLES: Record<string, { label: string; tone: 'zinc' | 'blue' | 'amber' | 'red' }> = {
+  none: { label: 'no signal', tone: 'zinc' },
+  low: { label: 'low', tone: 'blue' },
+  medium: { label: 'medium', tone: 'amber' },
+  high: { label: 'high', tone: 'red' },
+}
+
+const CHIP: Record<string, string> = {
+  blue: 'bg-blue-500/15 text-blue-400',
+  amber: 'bg-amber-500/15 text-amber-400',
+  green: 'bg-green-500/15 text-green-400',
+  red: 'bg-red-500/15 text-red-400',
+  purple: 'bg-purple-500/15 text-purple-400',
 }
 
 export function Domains() {
@@ -24,14 +36,28 @@ export function Domains() {
   // Poll so cards update live while jobs run (backend caches overview ~8s).
   usePoll(load, 8000)
 
+  const totals = overview.reduce(
+    (a, d) => ({
+      subs: a.subs + d.subdomains.total,
+      findings: a.findings + d.findings.total,
+      ips: a.ips + d.exposure.ips,
+      cves: a.cves + d.exposure.cves,
+    }),
+    { subs: 0, findings: 0, ips: 0, cves: 0 },
+  )
+
   return (
     <div>
       <PageHeader
         title="Domains"
-        subtitle="Your targets at a glance. Active/loud scans require active_authorized."
+        subtitle={
+          overview.length
+            ? `${overview.length} target${overview.length > 1 ? 's' : ''} · live recon overview`
+            : 'Your targets at a glance. Active/loud scans require active_authorized.'
+        }
         actions={
-          <Button variant={showAdd ? 'ghost' : 'default'} onClick={() => setShowAdd((v) => !v)}>
-            {showAdd ? 'Close' : '+ Add domain'}
+          <Button variant={showAdd ? 'ghost' : 'loud'} onClick={() => setShowAdd((v) => !v)}>
+            {showAdd ? 'Close' : <><Plus size={16} /> Add domain</>}
           </Button>
         }
       />
@@ -47,34 +73,57 @@ export function Domains() {
       )}
 
       {overview.length === 0 ? (
-        <Empty>No domains yet. Click “+ Add domain” to start recon.</Empty>
+        <Empty>No domains yet. Click “Add domain” to start recon.</Empty>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {overview.map((d) => (
-            <DomainCard
-              key={d.id}
-              d={d}
-              selected={selectedId === d.id}
-              busyAction={busyAction}
-              onSelect={() => select(d.id)}
-              onAction={async (kind, fn) => {
-                setBusyAction(`${d.id}:${kind}`)
-                try {
-                  await fn()
+        <>
+          <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Kpi icon={Network} tone="blue" label="Subdomains" value={totals.subs} />
+            <Kpi icon={Flag} tone="amber" label="Findings" value={totals.findings} />
+            <Kpi icon={Server} tone="green" label="Exposed IPs" value={totals.ips} />
+            <Kpi icon={Bug} tone="red" label="Critical CVEs" value={totals.cves} />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {overview.map((d) => (
+              <DomainCard
+                key={d.id}
+                d={d}
+                selected={selectedId === d.id}
+                busyAction={busyAction}
+                onSelect={() => select(d.id)}
+                onAction={async (kind, fn) => {
+                  setBusyAction(`${d.id}:${kind}`)
+                  try {
+                    await fn()
+                    load()
+                  } finally {
+                    setBusyAction(null)
+                  }
+                }}
+                onChanged={async () => {
+                  await refreshDomains()
                   load()
-                } finally {
-                  setBusyAction(null)
-                }
-              }}
-              onChanged={async () => {
-                await refreshDomains()
-                load()
-              }}
-            />
-          ))}
-        </div>
+                }}
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
+  )
+}
+
+function Kpi({ icon: Icon, tone, label, value }: { icon: LucideIcon; tone: string; label: string; value: number }) {
+  return (
+    <Card className="!p-3">
+      <div className="mb-2 flex items-center gap-2">
+        <span className={`flex h-6 w-6 items-center justify-center rounded-md ${CHIP[tone]}`}>
+          <Icon size={14} />
+        </span>
+        <span className="text-xs text-zinc-400">{label}</span>
+      </div>
+      <div className="text-2xl font-semibold leading-none text-zinc-50">{value}</div>
+    </Card>
   )
 }
 
@@ -149,48 +198,48 @@ function DomainCard({
   const isBusy = (kind: string) => busyAction === `${d.id}:${kind}`
 
   return (
-    <Card className={`flex flex-col gap-3 transition ${selected ? 'ring-1 ring-zinc-500' : 'hover:border-zinc-700'}`}>
+    <Card className={`flex flex-col gap-3 transition ${selected ? 'ring-1 ring-accent-500/60 border-accent-500/40' : 'hover:border-hair-strong'}`}>
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
-        <button onClick={onSelect} className="min-w-0 text-left">
-          <div className="flex items-center gap-2">
-            <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${rs.dot}`} title={`risk: ${rs.label}`} />
-            <span className="truncate font-medium text-zinc-100">{d.host}</span>
+        <div className="min-w-0">
+          <button
+            onClick={onSelect}
+            className="block max-w-full truncate text-left font-mono text-sm font-medium text-zinc-100 hover:text-white"
+          >
+            {d.host}
+          </button>
+          <div className="mt-1 flex items-center gap-1.5">
+            <button onClick={toggleMode} title="click to toggle mode">
+              {active ? <Badge tone="amber">active</Badge> : <Badge tone="green">passive</Badge>}
+            </button>
+            {d.subdomains.new > 0 && <Badge tone="blue">+{d.subdomains.new} new</Badge>}
           </div>
-          <div className="mt-0.5 truncate text-xs text-zinc-500">{d.label || 'no label'}</div>
-        </button>
-        <button onClick={toggleMode} title="click to toggle mode">
-          {active ? <Badge tone="amber">active</Badge> : <Badge tone="green">passive</Badge>}
-        </button>
+        </div>
+        <Badge tone={rs.tone}>
+          {d.findings.maxScore != null ? `${d.findings.maxScore} · ${rs.label}` : rs.label}
+        </Badge>
       </div>
 
-      {/* Stat tiles */}
+      {/* Stat strip */}
       <div className="grid grid-cols-3 gap-2">
-        <Stat label="Subdomains" value={d.subdomains.total} sub={d.subdomains.new > 0 ? `+${d.subdomains.new} new` : undefined} subTone="blue" />
-        <Stat
-          label="Top risk"
-          value={d.findings.maxScore ?? '—'}
-          sub={rs.label}
-          subTone={rs.tone}
-        />
-        <Stat label="Findings" value={d.findings.total} />
-        <Stat label="Exposed IPs" value={d.exposure.ips} />
-        <Stat label="Open ports" value={d.exposure.openPorts} />
-        <Stat label="CVEs" value={d.exposure.cves} subTone="red" sub={d.exposure.cves > 0 ? 'review' : undefined} />
+        <Stat icon={Network} color="text-blue-400" label="subdomains" value={d.subdomains.total} />
+        <Stat icon={Flag} color="text-amber-400" label="findings" value={d.findings.total} />
+        <Stat icon={Server} color="text-green-400" label="exposed IPs" value={d.exposure.ips} />
+        <Stat icon={Cable} color="text-purple-400" label="open ports" value={d.exposure.openPorts} />
+        <Stat icon={Bug} color="text-red-400" label="CVEs" value={d.exposure.cves} />
+        <Stat icon={Clock} color="text-zinc-400" label="last recon" value={timeAgo(d.lastActivity)} />
       </div>
-
-      <div className="text-[11px] text-zinc-500">Last recon: {timeAgo(d.lastActivity)}</div>
 
       {/* Edit panel */}
       {editing && (
-        <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-3">
+        <div className="space-y-2 rounded-lg border border-hair bg-ink-900/70 p-3">
           <label className="block text-xs text-zinc-400">
             Label
             <input
               value={labelDraft}
               onChange={(e) => setLabelDraft(e.target.value)}
               placeholder="e.g. Client X"
-              className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-sm outline-none focus:border-zinc-500"
+              className="mt-1 block w-full rounded-lg border border-hair bg-ink-950 px-2.5 py-1 text-sm outline-none focus:border-accent-500"
             />
           </label>
           <label className="block text-xs text-zinc-400">
@@ -198,14 +247,14 @@ function DomainCard({
             <select
               value={modeDraft}
               onChange={(e) => setModeDraft(e.target.value as DomainMode)}
-              className="mt-1 block w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-sm"
+              className="mt-1 block w-full rounded-lg border border-hair bg-ink-950 px-2.5 py-1 text-sm"
             >
               <option value="passive_only">passive_only (safe — no loud scans)</option>
               <option value="active_authorized">active_authorized (enables nmap/nuclei/ffuf/OWASP)</option>
             </select>
           </label>
           <div className="flex gap-1.5">
-            <Button onClick={saveEdit}>Save</Button>
+            <Button variant="loud" onClick={saveEdit}>Save</Button>
             <Button
               variant="ghost"
               onClick={() => {
@@ -221,21 +270,21 @@ function DomainCard({
       )}
 
       {/* Quick actions */}
-      <div className="flex flex-wrap gap-1.5 border-t border-zinc-800 pt-3">
+      <div className="flex flex-wrap gap-1.5 border-t border-hair pt-3">
         <Button variant="ghost" onClick={() => onAction('discover', () => api.discover(d.id))} disabled={isBusy('discover')}>
-          {isBusy('discover') ? '…' : 'Discover'}
+          <Search size={14} /> {isBusy('discover') ? '…' : 'Discover'}
         </Button>
         <Button variant="ghost" onClick={() => onAction('exposure', () => api.exposure(d.id))} disabled={isBusy('exposure')}>
-          {isBusy('exposure') ? '…' : 'Exposure'}
+          <Radar size={14} /> {isBusy('exposure') ? '…' : 'Exposure'}
         </Button>
         <Button variant="ghost" onClick={() => onAction('osint', () => api.osint(d.id))} disabled={isBusy('osint')}>
-          {isBusy('osint') ? '…' : 'OSINT'}
+          <Eye size={14} /> {isBusy('osint') ? '…' : 'OSINT'}
         </Button>
         <div className="ml-auto flex gap-1.5">
           <Button variant="ghost" onClick={() => setEditing((v) => !v)}>
             {editing ? 'Close' : 'Edit'}
           </Button>
-          <Button variant="ghost" onClick={onSelect}>
+          <Button variant={selected ? 'default' : 'ghost'} onClick={onSelect}>
             {selected ? '✓ Target' : 'Select'}
           </Button>
           <Button variant="danger" onClick={remove}>
@@ -248,27 +297,23 @@ function DomainCard({
 }
 
 function Stat({
+  icon: Icon,
+  color,
   label,
   value,
-  sub,
-  subTone = 'zinc',
 }: {
+  icon: LucideIcon
+  color: string
   label: string
   value: number | string
-  sub?: string
-  subTone?: 'zinc' | 'blue' | 'amber' | 'red'
 }) {
-  const subColor = {
-    zinc: 'text-zinc-500',
-    blue: 'text-blue-400',
-    amber: 'text-amber-400',
-    red: 'text-red-400',
-  }[subTone]
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-950/40 p-2">
-      <div className="text-[10px] uppercase tracking-wide text-zinc-500">{label}</div>
-      <div className="text-lg font-semibold leading-tight text-zinc-100">{value}</div>
-      <div className={`h-3.5 text-[10px] ${subColor}`}>{sub ?? ''}</div>
+    <div className="rounded-lg border border-hair-soft bg-ink-900/50 p-2">
+      <div className="flex items-center gap-1.5">
+        <Icon size={13} className={color} />
+        <span className="text-[15px] font-semibold leading-none text-zinc-100">{value}</span>
+      </div>
+      <div className="mt-1 text-[10px] uppercase tracking-wide text-zinc-500">{label}</div>
     </div>
   )
 }
@@ -306,7 +351,7 @@ function AddDomainForm({ onAdded }: { onAdded: () => void }) {
             onChange={(e) => setHost(e.target.value)}
             placeholder="example.com"
             autoFocus
-            className="mt-1 block w-56 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm outline-none focus:border-zinc-500"
+            className="mt-1 block w-56 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm outline-none focus:border-accent-500"
           />
         </label>
         <label className="text-sm">
@@ -315,7 +360,7 @@ function AddDomainForm({ onAdded }: { onAdded: () => void }) {
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="Client X"
-            className="mt-1 block w-44 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm outline-none focus:border-zinc-500"
+            className="mt-1 block w-44 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm outline-none focus:border-accent-500"
           />
         </label>
         <label className="text-sm">
@@ -323,13 +368,13 @@ function AddDomainForm({ onAdded }: { onAdded: () => void }) {
           <select
             value={mode}
             onChange={(e) => setMode(e.target.value as DomainMode)}
-            className="mt-1 block rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm outline-none focus:border-zinc-500"
+            className="mt-1 block rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm outline-none focus:border-accent-500"
           >
             <option value="passive_only">passive_only</option>
             <option value="active_authorized">active_authorized</option>
           </select>
         </label>
-        <Button type="submit" disabled={busy || !host.trim()}>
+        <Button type="submit" variant="loud" disabled={busy || !host.trim()}>
           {busy ? 'Adding…' : 'Add domain'}
         </Button>
       </form>

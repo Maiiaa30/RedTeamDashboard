@@ -110,7 +110,7 @@ function Section({
         {items.slice(0, limit).map((f, i) => (
           <div
             key={f.id}
-            className={`flex items-center gap-3 px-3 py-2 text-sm ${i > 0 ? 'border-t border-zinc-800/60' : ''}`}
+            className={`flex items-center gap-3 px-3 py-2 text-sm ${i > 0 ? 'border-t border-hair/60' : ''}`}
           >
             <ScoreBadge score={f.score} />
             <Badge>{f.type.replace('_', ' ')}</Badge>

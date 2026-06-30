@@ -25,38 +25,44 @@ export async function subdomainDiscoveryHandler({ params, log }: JobContext) {
   const discovered: { host: string; source: string }[] = []
   const sources: Record<string, number | string> = {}
 
+  // Run the passive sources concurrently so a slow crt.sh doesn't add its
+  // latency on top of certspotter/subfinder — the job finishes in max(sources)
+  // rather than the sum, and one source failing never blocks the others.
+  const [crtRes, csRes, sfRes] = await Promise.allSettled([
+    crtShSubdomains(domain.host),
+    certSpotterSubdomains(domain.host),
+    subfinderSubdomains(domain.host),
+  ])
+
   // crt.sh (certificate transparency)
-  try {
-    const crt = await crtShSubdomains(domain.host)
-    for (const host of crt) discovered.push({ host, source: 'crtsh' })
-    sources.crtsh = crt.length
-  } catch (err) {
-    sources.crtsh = `error: ${err instanceof Error ? err.message : String(err)}`
-    log.warn({ domain: domain.host, err }, 'crt.sh discovery failed')
+  if (crtRes.status === 'fulfilled') {
+    for (const host of crtRes.value) discovered.push({ host, source: 'crtsh' })
+    sources.crtsh = crtRes.value.length
+  } else {
+    sources.crtsh = `error: ${crtRes.reason instanceof Error ? crtRes.reason.message : String(crtRes.reason)}`
+    log.warn({ domain: domain.host, err: crtRes.reason }, 'crt.sh discovery failed')
   }
 
   // certspotter (redundant CT source — covers crt.sh outages)
-  try {
-    const cs = await certSpotterSubdomains(domain.host)
-    for (const host of cs) discovered.push({ host, source: 'certspotter' })
-    sources.certspotter = cs.length
-  } catch (err) {
-    sources.certspotter = `error: ${err instanceof Error ? err.message : String(err)}`
-    log.warn({ domain: domain.host, err }, 'certspotter discovery failed')
+  if (csRes.status === 'fulfilled') {
+    for (const host of csRes.value) discovered.push({ host, source: 'certspotter' })
+    sources.certspotter = csRes.value.length
+  } else {
+    sources.certspotter = `error: ${csRes.reason instanceof Error ? csRes.reason.message : String(csRes.reason)}`
+    log.warn({ domain: domain.host, err: csRes.reason }, 'certspotter discovery failed')
   }
 
   // subfinder (passive). Unavailable locally without the binary.
-  try {
-    const sf = await subfinderSubdomains(domain.host)
-    if (sf.available) {
-      for (const host of sf.hosts) discovered.push({ host, source: 'subfinder' })
-      sources.subfinder = sf.hosts.length
+  if (sfRes.status === 'fulfilled') {
+    if (sfRes.value.available) {
+      for (const host of sfRes.value.hosts) discovered.push({ host, source: 'subfinder' })
+      sources.subfinder = sfRes.value.hosts.length
     } else {
       sources.subfinder = 'unavailable (binary not installed)'
     }
-  } catch (err) {
-    sources.subfinder = `error: ${err instanceof Error ? err.message : String(err)}`
-    log.warn({ domain: domain.host, err }, 'subfinder discovery failed')
+  } else {
+    sources.subfinder = `error: ${sfRes.reason instanceof Error ? sfRes.reason.message : String(sfRes.reason)}`
+    log.warn({ domain: domain.host, err: sfRes.reason }, 'subfinder discovery failed')
   }
 
   const diff = diffAndStore(domainId, discovered)

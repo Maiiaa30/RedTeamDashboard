@@ -28,10 +28,10 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
   }
 
   return (
-    <div className="min-h-full flex items-center justify-center p-6 bg-zinc-950 text-zinc-100">
+    <div className="min-h-full flex items-center justify-center p-6 bg-ink-950 text-zinc-100">
       <form
         onSubmit={submit}
-        className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900/60 p-8 shadow-xl"
+        className="w-full max-w-sm rounded-2xl border border-hair bg-ink-900/60 p-8 shadow-xl"
       >
         <h1 className="text-xl font-semibold tracking-tight">Recon Dashboard</h1>
         <p className="mt-1 text-sm text-zinc-400">Operator login</p>
@@ -39,7 +39,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
         <label className="mt-6 block text-sm">
           <span className="text-zinc-400">Username</span>
           <input
-            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-500"
+            className="mt-1 w-full rounded-lg border border-hair bg-ink-950 px-3 py-2 text-sm outline-none focus:border-accent-500"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             autoComplete="username"
@@ -51,7 +51,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
           <span className="text-zinc-400">Password</span>
           <input
             type="password"
-            className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-500"
+            className="mt-1 w-full rounded-lg border border-hair bg-ink-950 px-3 py-2 text-sm outline-none focus:border-accent-500"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
@@ -63,7 +63,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
             <span className="text-zinc-400">2FA code</span>
             <input
               inputMode="numeric"
-              className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm outline-none focus:border-zinc-500"
+              className="mt-1 w-full rounded-lg border border-hair bg-ink-950 px-3 py-2 text-sm outline-none focus:border-accent-500"
               value={token}
               onChange={(e) => setToken(e.target.value)}
               autoComplete="one-time-code"

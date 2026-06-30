@@ -97,7 +97,7 @@ export function Canvas() {
             <div
               key={d.id}
               className={`flex items-center justify-between rounded-lg border px-2 py-1.5 text-sm ${
-                current?.id === d.id ? 'border-zinc-600 bg-zinc-800' : 'border-zinc-800 hover:bg-zinc-800/50'
+                current?.id === d.id ? 'border-zinc-600 bg-zinc-800' : 'border-hair hover:bg-ink-800/60'
               }`}
             >
               <button onClick={() => open(d.id)} className="flex-1 truncate text-left text-zinc-200">
@@ -110,7 +110,7 @@ export function Canvas() {
           ))}
         </aside>
 
-        <div className="flex-1 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950">
+        <div className="flex-1 overflow-hidden rounded-xl border border-hair bg-ink-950">
           {current ? (
             <Suspense fallback={<div className="p-6 text-sm text-zinc-500">Loading canvas…</div>}>
               <Excalidraw

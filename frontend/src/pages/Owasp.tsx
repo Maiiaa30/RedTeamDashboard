@@ -28,16 +28,26 @@ function isApplicable(category: OwaspCategory, profile: DomainProfile): boolean 
   return category.requires.some((k) => profile[k as keyof DomainProfile] === true)
 }
 
+// Passive_only domains may still run after an explicit confirmation (the server
+// enforces the same gate via confirm:true). Mirrors the Scans/Fuzzing flow.
+function confirmPassiveOwasp(host: string): boolean {
+  return confirm(
+    `⚠ ${host} is passive_only.\n\nOWASP tests are LOUD, active nuclei scans. Only run them against ${host} if you are authorized to actively test this target.\n\nRun anyway?`,
+  )
+}
+
 function CategoryCard({
   category,
   applicable,
   canRun,
+  active,
   busy,
   onRun,
 }: {
   category: OwaspCategory
   applicable: boolean
   canRun: boolean
+  active: boolean
   busy: string | null
   onRun: (category: OwaspCategory) => void
 }) {
@@ -76,7 +86,7 @@ function CategoryCard({
           disabled={!canRun || !applicable || busy != null}
           onClick={() => onRun(category)}
         >
-          {running ? 'Queuing…' : 'Run'}
+          {running ? 'Queuing…' : active ? 'Run' : 'Run (confirm)'}
         </Button>
         <button
           type="button"
@@ -88,7 +98,7 @@ function CategoryCard({
       </div>
 
       {showPayloads && (
-        <div className="mt-3 space-y-1 rounded-lg border border-zinc-800 bg-zinc-950/60 p-2">
+        <div className="mt-3 space-y-1 rounded-lg border border-hair bg-ink-950/60 p-2">
           {category.payloads.length === 0 ? (
             <p className="text-xs text-zinc-500">No reference payloads.</p>
           ) : (
@@ -111,6 +121,9 @@ export function Owasp() {
   const [profileKeys, setProfileKeys] = useState<OwaspProfileKey[]>([])
   const [nucleiInstalled, setNucleiInstalled] = useState<boolean | null>(null)
   const [findings, setFindings] = useState<Finding[]>([])
+  // False until the first fetch for the current target resolves — lets us show a
+  // loading state instead of the previous domain's results or a false "empty".
+  const [findingsReady, setFindingsReady] = useState(false)
 
   // Optimistic local copy of the profile, re-seeded when the selected domain changes.
   const [profile, setProfile] = useState<DomainProfile>(selected?.profile ?? {})
@@ -151,14 +164,26 @@ export function Owasp() {
       .findings({ domainId: selectedId, type: 'nuclei', limit: 500 })
       .then((r) => setFindings(r.findings))
       .catch(() => {})
+      .finally(() => setFindingsReady(true))
   }, [selectedId])
+
+  // On target switch, clear the previous domain's results and fetch the new
+  // one's immediately — otherwise usePoll keeps showing stale findings until the
+  // next interval tick (up to 6s), which looked like results flickering away.
+  useEffect(() => {
+    setFindings([])
+    setFindingsReady(false)
+    loadFindings()
+  }, [loadFindings])
   usePoll(loadFindings, 6000, selectedId != null)
 
   if (!selected) return <Empty>Select a domain to run OWASP tests.</Empty>
 
   const active = selected.mode === 'active_authorized'
   const nucleiOk = nucleiInstalled === true
-  const canRun = active && nucleiOk
+  // Passive domains can still run after a confirmation, so the only hard
+  // requirement to enable the buttons is that nuclei is installed.
+  const canRun = nucleiOk
   const applicableCount = catalog.filter((c) => isApplicable(c, profile)).length
 
   async function toggleProfile(key: keyof DomainProfile, checked: boolean): Promise<void> {
@@ -180,11 +205,13 @@ export function Owasp() {
 
   async function runAllApplicable(): Promise<void> {
     if (!selected) return
+    const needConfirm = selected.mode !== 'active_authorized'
+    if (needConfirm && !confirmPassiveOwasp(selected.host)) return
     setBusy('all')
     setRunMessage(null)
     setRunError(null)
     try {
-      const { jobId, categories } = await api.runOwasp(selected.id)
+      const { jobId, categories } = await api.runOwasp(selected.id, undefined, undefined, needConfirm)
       setRunMessage(
         `Queued job #${jobId} covering ${categories.length ? categories.join(', ') : '(none)'}`,
       )
@@ -197,11 +224,13 @@ export function Owasp() {
 
   async function runCategory(category: OwaspCategory): Promise<void> {
     if (!selected) return
+    const needConfirm = selected.mode !== 'active_authorized'
+    if (needConfirm && !confirmPassiveOwasp(selected.host)) return
     setBusy(category.id)
     setRunMessage(null)
     setRunError(null)
     try {
-      const { jobId, categories } = await api.runOwasp(selected.id, [category.id])
+      const { jobId, categories } = await api.runOwasp(selected.id, [category.id], undefined, needConfirm)
       setRunMessage(
         `Queued job #${jobId} covering ${categories.length ? categories.join(', ') : category.id}`,
       )
@@ -223,16 +252,16 @@ export function Owasp() {
       {!active && (
         <Card className="mb-6 border-amber-900/60 bg-amber-950/30">
           <div className="mb-1 flex items-center gap-2">
-            <Badge tone="amber">disabled</Badge>
+            <Badge tone="amber">passive_only</Badge>
             <span className="text-sm font-medium text-amber-200">
-              OWASP tests are disabled for passive_only domains
+              This domain is passive — OWASP tests need confirmation
             </span>
           </div>
           <p className="text-sm text-amber-200/80">
-            These are loud, active nuclei scans. The operator must mark{' '}
-            <span className="font-mono">{selected.host}</span> as{' '}
-            <span className="font-mono">active_authorized</span> (in the Domains tab) — and only for a
-            target you are authorized to actively test — before running these.
+            These are loud, active nuclei scans. You can run them here after a confirmation prompt, but only
+            against a target you are authorized to actively test. Set{' '}
+            <span className="font-mono">{selected.host}</span> to{' '}
+            <span className="font-mono">active_authorized</span> in Domains to skip the prompt.
           </p>
         </Card>
       )}
@@ -260,14 +289,14 @@ export function Owasp() {
             return (
               <label
                 key={String(pk.key)}
-                className="flex items-start gap-2 rounded-lg border border-zinc-800 bg-zinc-950/40 p-2.5"
+                className="flex items-start gap-2 rounded-lg border border-hair bg-ink-900/50 p-2.5"
               >
                 <input
                   type="checkbox"
                   checked={checked}
                   disabled={busy != null}
                   onChange={(e) => toggleProfile(pk.key, e.target.checked)}
-                  className="mt-0.5 h-4 w-4 accent-amber-500"
+                  className="mt-0.5 h-4 w-4 accent-indigo-500"
                 />
                 <span className="text-sm">
                   <span className="font-medium text-zinc-200">{pk.label}</span>
@@ -282,7 +311,7 @@ export function Owasp() {
       {/* Run all */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Button variant="loud" disabled={!canRun || busy != null} onClick={runAllApplicable}>
-          {busy === 'all' ? 'Queuing…' : 'Run all applicable'}
+          {busy === 'all' ? 'Queuing…' : active ? 'Run all applicable' : 'Run all applicable (confirm)'}
         </Button>
         <span className="text-sm text-zinc-500">
           {applicableCount} of {catalog.length} categories applicable
@@ -303,6 +332,7 @@ export function Owasp() {
               category={c}
               applicable={isApplicable(c, profile)}
               canRun={canRun}
+              active={active}
               busy={busy}
               onRun={runCategory}
             />
@@ -312,7 +342,9 @@ export function Owasp() {
 
       {/* Results */}
       <h2 className="mb-3 mt-8 text-sm font-semibold text-zinc-200">Results</h2>
-      {findings.length === 0 ? (
+      {!findingsReady ? (
+        <Empty>Loading results…</Empty>
+      ) : findings.length === 0 ? (
         <Empty>No OWASP findings yet. Configure the profile and run tests.</Empty>
       ) : (
         <div className="space-y-2">

@@ -85,7 +85,7 @@ function ChangeUsernamePanel() {
   }
 
   const inputCls =
-    'mt-1 block w-72 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm outline-none focus:border-zinc-500'
+    'mt-1 block w-72 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm outline-none focus:border-accent-500'
 
   return (
     <Card>
@@ -140,7 +140,7 @@ function ChangePasswordPanel() {
   }
 
   const inputCls =
-    'mt-1 block w-72 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm outline-none focus:border-zinc-500'
+    'mt-1 block w-72 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm outline-none focus:border-accent-500'
 
   return (
     <Card>
@@ -242,7 +242,7 @@ function BackupPanel() {
           value={passphrase}
           onChange={(e) => setPassphrase(e.target.value)}
           placeholder="Backup passphrase (min 12 chars)"
-          className="mt-3 block w-72 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm outline-none focus:border-zinc-500"
+          className="mt-3 block w-72 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm outline-none focus:border-accent-500"
         />
       )}
       {error && <p className="mt-2 text-sm text-red-400">{error}</p>}

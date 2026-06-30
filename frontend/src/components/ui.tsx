@@ -4,33 +4,47 @@ export function Button({
   variant = 'default',
   className = '',
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'default' | 'ghost' | 'danger' | 'loud' }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: 'default' | 'ghost' | 'danger' | 'loud' | 'primary'
+}) {
   const base =
-    'rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed'
+    'inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100'
   const variants: Record<string, string> = {
-    default: 'bg-zinc-100 text-zinc-900 hover:bg-white',
-    ghost: 'border border-zinc-700 text-zinc-300 hover:bg-zinc-800',
-    danger: 'border border-red-900 text-red-300 hover:bg-red-950',
-    loud: 'bg-amber-500 text-zinc-950 hover:bg-amber-400',
+    // Neutral elevated button — secondary primary actions.
+    default: 'bg-ink-800 text-zinc-100 border border-hair hover:bg-ink-700 hover:border-hair-strong',
+    ghost: 'border border-hair text-zinc-300 hover:bg-ink-800 hover:border-hair-strong',
+    danger: 'border border-red-900/70 text-red-300 hover:bg-red-950/50 hover:border-red-800',
+    // Indigo brand action — the loud/primary CTA used across pages.
+    loud: 'bg-accent-500 text-white shadow-sm shadow-accent-500/20 hover:bg-accent-400',
+    primary: 'bg-accent-500 text-white shadow-sm shadow-accent-500/20 hover:bg-accent-400',
   }
   return <button className={`${base} ${variants[variant]} ${className}`} {...props} />
 }
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 ${className}`}>{children}</div>
+    <div className={`rounded-xl border border-hair bg-ink-850 p-4 shadow-card ${className}`}>{children}</div>
   )
 }
 
-export function Badge({ children, tone = 'zinc' }: { children: ReactNode; tone?: 'zinc' | 'green' | 'amber' | 'red' | 'blue' }) {
-  const tones: Record<string, string> = {
-    zinc: 'bg-zinc-800 text-zinc-300',
-    green: 'bg-green-900/50 text-green-300',
-    amber: 'bg-amber-900/50 text-amber-300',
-    red: 'bg-red-900/50 text-red-300',
-    blue: 'bg-blue-900/50 text-blue-300',
-  }
-  return <span className={`rounded-full px-2 py-0.5 text-xs ${tones[tone]}`}>{children}</span>
+const BADGE_TONES: Record<string, string> = {
+  zinc: 'bg-ink-700 text-zinc-300',
+  green: 'bg-green-500/15 text-green-300 ring-1 ring-inset ring-green-500/20',
+  amber: 'bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-500/20',
+  red: 'bg-red-500/15 text-red-300 ring-1 ring-inset ring-red-500/20',
+  blue: 'bg-blue-500/15 text-blue-300 ring-1 ring-inset ring-blue-500/20',
+  indigo: 'bg-accent-500/15 text-accent-fg ring-1 ring-inset ring-accent-500/25',
+  purple: 'bg-purple-500/15 text-purple-300 ring-1 ring-inset ring-purple-500/20',
+}
+
+export function Badge({
+  children,
+  tone = 'zinc',
+}: {
+  children: ReactNode
+  tone?: 'zinc' | 'green' | 'amber' | 'red' | 'blue' | 'indigo' | 'purple'
+}) {
+  return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${BADGE_TONES[tone]}`}>{children}</span>
 }
 
 export function ScoreBadge({ score }: { score: number | null }) {
@@ -46,14 +60,14 @@ export function JobStatusBadge({ status }: { status: string }) {
 
 export function Empty({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-900/30 p-8 text-sm text-zinc-500">
+    <div className="rounded-xl border border-dashed border-hair bg-ink-900/60 p-8 text-sm text-zinc-400">
       {children}
     </div>
   )
 }
 
 export function Spinner() {
-  return <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-amber-500" />
+  return <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-accent-500" />
 }
 
 // Download links for an export endpoint. Plain anchors so the browser handles
@@ -83,7 +97,7 @@ export function ExportLinks({
         <a
           key={f}
           href={href(f)}
-          className="rounded-lg border border-zinc-700 px-2 py-1 text-xs text-zinc-300 hover:bg-zinc-800"
+          className="rounded-lg border border-hair px-2 py-1 text-xs text-zinc-300 transition hover:bg-ink-800 hover:border-hair-strong"
         >
           {f.toUpperCase()}
         </a>
@@ -94,10 +108,10 @@ export function ExportLinks({
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
   return (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
-        {subtitle && <p className="text-sm text-zinc-500">{subtitle}</p>}
+        <h1 className="text-xl font-semibold tracking-tight text-zinc-50">{title}</h1>
+        {subtitle && <p className="mt-0.5 text-sm text-zinc-400">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>

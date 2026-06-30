@@ -45,7 +45,7 @@ function TcpCard({ tcp }: { tcp: CheckHostResult['tcp'] }) {
           <div
             key={t.port}
             className={`flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs ${
-              t.open ? 'border-green-900 bg-green-950/40' : 'border-zinc-800 bg-zinc-900/40'
+              t.open ? 'border-green-900 bg-green-950/40' : 'border-hair bg-ink-850/60'
             }`}
           >
             <span className="font-mono text-zinc-200">{t.port}</span>
@@ -143,7 +143,7 @@ export function CheckHost() {
           placeholder="example.com or 1.1.1.1"
           autoFocus
           spellCheck={false}
-          className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm font-mono"
+          className="min-w-0 flex-1 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm font-mono"
         />
         <Button type="submit" variant="loud" disabled={loading || !host.trim()}>
           {loading ? 'Checking…' : 'Check'}

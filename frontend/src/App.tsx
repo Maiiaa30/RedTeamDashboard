@@ -32,7 +32,7 @@ export default function App() {
 
   if (auth.status === 'loading') {
     return (
-      <div className="min-h-full flex items-center justify-center bg-zinc-950 text-zinc-500 text-sm">
+      <div className="min-h-full flex items-center justify-center bg-ink-950 text-zinc-500 text-sm">
         Loading…
       </div>
     )

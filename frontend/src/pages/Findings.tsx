@@ -70,7 +70,7 @@ export function Findings() {
     : findings
 
   const selectCls =
-    'mt-1 block rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm outline-none focus:border-zinc-500'
+    'mt-1 block rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm outline-none focus:border-accent-500'
 
   return (
     <div>
@@ -114,7 +114,7 @@ export function Findings() {
             value={tagFilter}
             onChange={(e) => setTagFilter(e.target.value)}
             placeholder="kev, admin-port, takeover…"
-            className="mt-1 block w-56 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm outline-none focus:border-zinc-500"
+            className="mt-1 block w-56 rounded-lg border border-hair bg-ink-950 px-3 py-1.5 text-sm outline-none focus:border-accent-500"
           />
         </label>
         <span className="pb-1.5 text-xs text-zinc-600">{filtered.length} shown</span>
@@ -153,7 +153,7 @@ function FindingRow({ f, host, onTag }: { f: Finding; host: string; onTag: (t: s
   const shownTags = showAllTags ? tags : tags.slice(0, 7)
 
   return (
-    <div className={`rounded-xl border border-l-4 border-zinc-800 bg-zinc-900/40 ${RISK_BORDER[risk]}`}>
+    <div className={`rounded-xl border border-l-4 border-hair bg-ink-850/60 ${RISK_BORDER[risk]}`}>
       <div className="flex items-start gap-3 p-3">
         <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-semibold ring-1 ${RISK_SCORE[risk]}`}>
           {f.score ?? '—'}
@@ -229,7 +229,7 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
 function FindingDetail({ f }: { f: Finding }) {
   const d = f.data ?? {}
   return (
-    <div className="space-y-3 border-t border-zinc-800/60 bg-zinc-950/40 p-3 text-sm">
+    <div className="space-y-3 border-t border-hair/60 bg-ink-900/50 p-3 text-sm">
       <div className="space-y-1">
         {f.type === 'new_subdomain' && (
           <>

@@ -96,7 +96,7 @@ export function Subdomains() {
         <Empty>No subdomains discovered yet. Click “Run discovery now” (passive: crt.sh + subfinder).</Empty>
       ) : (
         <>
-          <div className="divide-y divide-zinc-800/60 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/40">
+          <div className="divide-y divide-zinc-800/60 overflow-hidden rounded-xl border border-hair bg-ink-850/60">
             {subs.map((s) => {
               const expanded = expandedId === s.id
               return (
@@ -104,7 +104,7 @@ export function Subdomains() {
                   <button
                     type="button"
                     onClick={() => setExpandedId(expanded ? null : s.id)}
-                    className="flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left text-sm hover:bg-zinc-800/40"
+                    className="flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left text-sm hover:bg-ink-800/40"
                   >
                     <Badge tone={statusTone(s.httpStatus)}>{s.httpStatus ?? '—'}</Badge>
                     <span className="font-mono text-zinc-200">{s.host}</span>
@@ -119,7 +119,7 @@ export function Subdomains() {
                   </button>
 
                   {expanded && (
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-zinc-800/60 bg-zinc-950/40 px-3 py-3 sm:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-3 border-t border-hair/60 bg-ink-900/50 px-3 py-3 sm:grid-cols-3">
                       <Field label="IP address" value={s.ipAddress ?? '—'} mono />
                       <Field label="Server" value={s.server ?? '—'} mono />
                       <Field label="Scheme" value={s.scheme ?? '—'} mono />
