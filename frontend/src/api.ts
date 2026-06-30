@@ -147,6 +147,8 @@ export const api = {
   enroll: () => get<{ totpEnabled: boolean; otpauthUrl: string }>('/auth/enroll'),
   enableTotp: (token: string) => post<{ totpEnabled: boolean }>('/auth/totp/enable', { token }),
   disableTotp: (token: string) => post<{ totpEnabled: boolean }>('/auth/totp/disable', { token }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    post<{ ok: true }>('/auth/password', { currentPassword, newPassword }),
 
   // meta
   meta: () => get<MetaStatus>('/meta/status'),

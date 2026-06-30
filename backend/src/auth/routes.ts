@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db/index'
 import { users } from '../db/schema'
 import { getOperator, getOperatorById } from './seed'
-import { verifyPassword } from './passwords'
+import { hashPassword, verifyPassword } from './passwords'
 import { totpAuthUrl, verifyTotp } from './totp'
 
 interface LoginBody {
@@ -120,6 +120,32 @@ export const authRoutes: FastifyPluginAsync = async (app: FastifyInstance) => {
       }
       db.update(users).set({ totpEnabled: false, updatedAt: new Date() }).where(eq(users.id, op.id)).run()
       return reply.send({ totpEnabled: false })
+    },
+  )
+
+  // --- Change password (no .env needed) -------------------------------------
+  app.post<{ Body: { currentPassword: string; newPassword: string } }>(
+    '/api/auth/password',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['currentPassword', 'newPassword'],
+          properties: {
+            currentPassword: { type: 'string', minLength: 1, maxLength: 1000 },
+            newPassword: { type: 'string', minLength: 10, maxLength: 1000 },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const op = getOperatorById(request.session.userId!)
+      if (!op) return reply.code(401).send({ error: 'unauthorized' })
+      const ok = await verifyPassword(op.passwordHash, request.body.currentPassword)
+      if (!ok) return reply.code(400).send({ error: 'current password is incorrect' })
+      const passwordHash = await hashPassword(request.body.newPassword)
+      db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, op.id)).run()
+      return reply.send({ ok: true })
     },
   )
 }

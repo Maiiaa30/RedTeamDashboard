@@ -16,6 +16,8 @@ export function Settings({ totpEnabled }: { totpEnabled: boolean }) {
 
       <TwoFactorPanel initialEnabled={totpEnabled} />
 
+      <ChangePasswordPanel />
+
       <Card>
         <h2 className="text-sm font-semibold">System status</h2>
         {!meta ? (
@@ -50,6 +52,66 @@ export function Settings({ totpEnabled }: { totpEnabled: boolean }) {
 
       <BackupPanel />
     </div>
+  )
+}
+
+function ChangePasswordPanel() {
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function submit() {
+    setMsg(null)
+    if (next !== confirm) {
+      setMsg({ ok: false, text: 'New passwords do not match.' })
+      return
+    }
+    setBusy(true)
+    try {
+      await api.changePassword(current, next)
+      setCurrent('')
+      setNext('')
+      setConfirm('')
+      setMsg({ ok: true, text: 'Password changed. You can now remove ADMIN_PASSWORD from .env.' })
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof Error ? err.message : 'failed to change password' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const inputCls =
+    'mt-1 block w-72 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm outline-none focus:border-zinc-500'
+
+  return (
+    <Card>
+      <h2 className="text-sm font-semibold">Change password</h2>
+      <p className="mt-1 text-sm text-zinc-400">
+        Set a new operator password (min 10 chars). Stored only as an argon2 hash in the database —
+        once changed, the <code className="text-zinc-300">ADMIN_PASSWORD</code> in your{' '}
+        <code className="text-zinc-300">.env</code> is no longer used and should be removed.
+      </p>
+      <div className="mt-3 space-y-2">
+        <label className="block text-sm text-zinc-400">
+          Current password
+          <input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} className={inputCls} autoComplete="current-password" />
+        </label>
+        <label className="block text-sm text-zinc-400">
+          New password
+          <input type="password" value={next} onChange={(e) => setNext(e.target.value)} className={inputCls} autoComplete="new-password" />
+        </label>
+        <label className="block text-sm text-zinc-400">
+          Confirm new password
+          <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className={inputCls} autoComplete="new-password" />
+        </label>
+      </div>
+      {msg && <p className={`mt-2 text-sm ${msg.ok ? 'text-green-400' : 'text-red-400'}`}>{msg.text}</p>}
+      <Button className="mt-3" onClick={submit} disabled={busy || !current || next.length < 10}>
+        {busy ? 'Updating…' : 'Change password'}
+      </Button>
+    </Card>
   )
 }
 

@@ -15,8 +15,11 @@ if (SESSION_SECRET.length < 32) {
   throw new Error('SESSION_SECRET must be at least 32 characters.')
 }
 
-const ADMIN_USERNAME = required('ADMIN_USERNAME', process.env.ADMIN_USERNAME)
-const ADMIN_PASSWORD = required('ADMIN_PASSWORD', process.env.ADMIN_PASSWORD)
+// Admin creds are OPTIONAL at boot — they are only needed to seed the operator
+// on first run. Once the operator exists, the credential lives as an argon2 hash
+// in the DB and these env vars can (and should) be removed from .env.
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME?.trim() ?? ''
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? ''
 
 export const config = {
   nodeEnv: NODE_ENV,
@@ -28,6 +31,7 @@ export const config = {
   admin: {
     username: ADMIN_USERNAME,
     password: ADMIN_PASSWORD,
+    configured: Boolean(ADMIN_USERNAME && ADMIN_PASSWORD),
     // Warn (not fail) if the seed password is still the placeholder.
     isDefaultPassword: ADMIN_PASSWORD === 'change-me',
   },

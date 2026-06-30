@@ -14,6 +14,53 @@ export function timeAgo(ms: number | null | undefined): string {
   return new Date(ms).toLocaleDateString()
 }
 
+// One-line human summary of a finding, by type.
+export function summarizeFinding(type: string, data: any): string {
+  if (!data) return type
+  switch (type) {
+    case 'new_subdomain':
+      return String(data.host ?? '')
+    case 'exposure': {
+      const ports = Array.isArray(data.ports) ? data.ports.length : 0
+      const cves = Array.isArray(data.vulns) ? data.vulns.length : 0
+      return `${data.ip ?? '?'} · ${ports} port(s)${cves ? ` · ${cves} CVE(s)` : ''}`
+    }
+    case 'osint':
+      return `OSINT for ${data.domain ?? '?'}`
+    case 'nmap': {
+      const open = Array.isArray(data.openPorts) ? data.openPorts.length : 0
+      return `${data.target ?? '?'} · ${open} open port(s)`
+    }
+    case 'nuclei':
+      return `${data.severity ?? 'info'}: ${data.name ?? data.templateId ?? '?'} @ ${data.target ?? ''}`
+    case 'ffuf':
+      return `${data.status ?? '?'} ${data.url ?? ''}`
+    default:
+      return JSON.stringify(data).slice(0, 120)
+  }
+}
+
+// Compact one-line summary of a finished job's result, by job type.
+export function summarizeJob(type: string, result: any): string {
+  if (!result || typeof result !== 'object') return ''
+  switch (type) {
+    case 'subdomain_discovery':
+      return `${result.discovered ?? 0} found, ${result.newCount ?? 0} new`
+    case 'exposure_scan':
+      return `${result.exposedIps ?? 0} exposed IP(s) of ${result.ipsResolved ?? 0} resolved`
+    case 'osint_gather':
+      return `OSINT for ${result.domain ?? ''}`
+    case 'nmap_scan':
+      return result.available === false ? 'nmap not installed' : `${(result.openPorts ?? []).length} open port(s)`
+    case 'nuclei_scan':
+      return result.available === false ? 'nuclei not installed' : `${result.count ?? 0} finding(s)`
+    case 'ffuf_scan':
+      return result.available === false ? 'ffuf not installed' : `${result.hits ?? 0} hit(s)`
+    default:
+      return ''
+  }
+}
+
 export type RiskLevel = 'none' | 'low' | 'medium' | 'high'
 
 export function riskFromScore(score: number | null | undefined): RiskLevel {

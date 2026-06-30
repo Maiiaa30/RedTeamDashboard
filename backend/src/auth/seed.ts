@@ -11,6 +11,21 @@ import { generateTotpSecret, totpAuthUrl } from './totp'
 export async function seedAdmin(log: FastifyBaseLogger): Promise<void> {
   const existing = db.select().from(users).limit(1).all()
   if (existing.length > 0) {
+    // Operator already exists — the env creds were only ever needed to seed it.
+    if (config.admin.password) {
+      log.info(
+        'Operator account already exists. ADMIN_USERNAME/ADMIN_PASSWORD are no longer ' +
+          'needed and can be removed from .env (the password lives as an argon2 hash in the DB).',
+      )
+    }
+    return
+  }
+
+  if (!config.admin.configured) {
+    log.error(
+      'No operator account exists and ADMIN_USERNAME/ADMIN_PASSWORD are not set. ' +
+        'Set them in .env and restart to create the operator account.',
+    )
     return
   }
 

@@ -3,7 +3,9 @@ import type { Me } from '../api'
 import { api } from '../api'
 import { useApp } from '../state'
 import { Domains } from '../pages/Domains'
+import { Intel } from '../pages/Intel'
 import { Subdomains } from '../pages/Subdomains'
+import { Fuzzing } from '../pages/Fuzzing'
 import { Exposure } from '../pages/Exposure'
 import { Osint } from '../pages/Osint'
 import { Scans } from '../pages/Scans'
@@ -15,21 +17,23 @@ import { Settings } from '../pages/Settings'
 
 const MODULES = [
   { key: 'domains', label: 'Domains' },
+  { key: 'intel', label: 'Intel' },
   { key: 'subdomains', label: 'Subdomains' },
+  { key: 'fuzzing', label: 'Fuzzing' },
   { key: 'exposure', label: 'Exposure' },
   { key: 'osint', label: 'OSINT' },
   { key: 'scans', label: 'Scans' },
   { key: 'findings', label: 'Findings' },
   { key: 'notes', label: 'Notes' },
   { key: 'canvas', label: 'Canvas' },
-  { key: 'jobs', label: 'Jobs' },
+  { key: 'jobs', label: 'Logs' },
   { key: 'settings', label: 'Settings' },
 ] as const
 
 type ModuleKey = (typeof MODULES)[number]['key']
 
 // Modules that operate on a selected domain show the domain picker.
-const DOMAIN_SCOPED: ModuleKey[] = ['subdomains', 'exposure', 'osint', 'scans', 'notes']
+const DOMAIN_SCOPED: ModuleKey[] = ['subdomains', 'fuzzing', 'exposure', 'osint', 'scans', 'notes']
 
 export function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
   const { domains, selectedId, select } = useApp()
@@ -106,7 +110,9 @@ export function Shell({ me, onLogout }: { me: Me; onLogout: () => void }) {
         )}
 
         {active === 'domains' && <Domains />}
+        {active === 'intel' && <Intel />}
         {active === 'subdomains' && <Subdomains />}
+        {active === 'fuzzing' && <Fuzzing />}
         {active === 'exposure' && <Exposure />}
         {active === 'osint' && <Osint />}
         {active === 'scans' && <Scans />}
