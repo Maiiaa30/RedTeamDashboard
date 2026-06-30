@@ -315,6 +315,63 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
   )
 }
 
+// "Why this score" — the scorer's reasons, stored on the finding data.
+function ScoreReasons({ score, reasons }: { score: number | null; reasons: unknown }) {
+  if (!Array.isArray(reasons) || reasons.length === 0) return null
+  return (
+    <div className="rounded-lg border border-hair bg-ink-900/60 p-2.5">
+      <div className="mb-1.5 text-xs uppercase tracking-wide text-zinc-500">
+        Why this scored {score ?? '—'}
+      </div>
+      <ul className="space-y-1">
+        {(reasons as string[]).map((r, i) => (
+          <li key={i} className="flex gap-2 text-xs text-zinc-300">
+            <span className="text-accent-400">•</span>
+            <span>{r}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+interface CveLike { cve_id: string; summary?: string; cvss?: number; cvss_v3?: number; kev?: boolean }
+
+function CveList({ cves, vulns }: { cves: unknown; vulns: unknown }) {
+  const list: CveLike[] = Array.isArray(cves) && cves.length
+    ? (cves as CveLike[])
+    : Array.isArray(vulns)
+      ? (vulns as string[]).map((id) => ({ cve_id: id }))
+      : []
+  if (!list.length) return null
+  return (
+    <div>
+      <div className="mb-1 text-xs uppercase tracking-wide text-zinc-600">CVEs ({list.length})</div>
+      <div className="space-y-1">
+        {list.map((c) => {
+          const cvss = c.cvss_v3 ?? c.cvss
+          const tone = cvss == null ? 'zinc' : cvss >= 9 ? 'red' : cvss >= 7 ? 'amber' : cvss >= 4 ? 'blue' : 'zinc'
+          return (
+            <div key={c.cve_id} className="flex flex-wrap items-center gap-2 text-xs">
+              <a
+                href={`https://nvd.nist.gov/vuln/detail/${encodeURIComponent(c.cve_id)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="font-mono text-sky-400 hover:underline"
+              >
+                {c.cve_id}
+              </a>
+              {cvss != null && <Badge tone={tone}>CVSS {cvss}</Badge>}
+              {c.kev && <Badge tone="red">KEV — exploited</Badge>}
+              {c.summary && <span className="min-w-0 flex-1 truncate text-zinc-500">{c.summary}</span>}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function NoteEditor({ f, onUpdate }: { f: Finding; onUpdate: (id: number, patch: { note?: string | null }) => void }) {
   const [note, setNote] = useState(f.note ?? '')
   const dirty = note !== (f.note ?? '')
@@ -346,6 +403,7 @@ function FindingDetail({ f, onUpdate }: { f: Finding; onUpdate: (id: number, pat
   const d = f.data ?? {}
   return (
     <div className="space-y-3 border-t border-hair/60 bg-ink-900/50 p-3 text-sm">
+      <ScoreReasons score={f.score} reasons={d._scoreReasons} />
       <div className="space-y-1">
         {f.type === 'new_subdomain' && (
           <>
@@ -376,7 +434,7 @@ function FindingDetail({ f, onUpdate }: { f: Finding; onUpdate: (id: number, pat
             <Detail label="Hostnames" value={Array.isArray(d.hostnames) ? d.hostnames.join(', ') : null} />
             <Detail label="Ports" value={Array.isArray(d.ports) ? d.ports.join(', ') : null} />
             <Detail label="CPEs" value={Array.isArray(d.cpes) ? d.cpes.join(', ') : null} />
-            <Detail label="CVEs" value={Array.isArray(d.vulns) ? d.vulns.join(', ') : null} />
+            <CveList cves={d.cves} vulns={d.vulns} />
           </>
         )}
         {f.type === 'origin' && (

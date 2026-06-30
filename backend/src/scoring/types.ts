@@ -8,6 +8,7 @@ export interface ScoreInput {
 export interface ScoreResult {
   score: number // 0-100, higher = more interesting
   tags: string[]
+  reasons?: string[] // human-readable explanation of what drove the score
 }
 
 // A Scorer turns a finding into a priority score + tags. The interface is async
