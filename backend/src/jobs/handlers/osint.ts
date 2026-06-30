@@ -4,6 +4,7 @@ import { addFinding } from '../../findings/store'
 import { certSpotterSubdomains } from '../../sources/certspotter'
 import { crtShSubdomains } from '../../sources/crtsh'
 import { resolveDns } from '../../sources/dns'
+import { fingerprintHost } from '../../sources/fingerprint'
 import { internetDbLookup } from '../../sources/internetdb'
 import { whoisDomain } from '../../sources/whois'
 import { zoneTransfer } from '../../sources/zoneTransfer'
@@ -84,6 +85,17 @@ export async function osintHandler({ params, log }: JobContext) {
     }
   } catch (err) {
     result.internetdb = { error: err instanceof Error ? err.message : String(err) }
+  }
+
+  // Technology fingerprint: OS, server, and stack from HTTP headers/cookies/HTML,
+  // enriched with any CPEs InternetDB surfaced for the apex IP.
+  try {
+    const idb = result.internetdb as { cpes?: string[] } | { error: string } | undefined
+    const cpes = idb && !('error' in idb) ? idb.cpes ?? [] : []
+    result.tech = await fingerprintHost(host, cpes)
+  } catch (err) {
+    result.tech = { error: err instanceof Error ? err.message : String(err) }
+    log.warn({ host, err }, 'osint fingerprint failed')
   }
 
   await addScoredFinding({ domainId, type: 'osint', data: result, tags: ['osint'] })

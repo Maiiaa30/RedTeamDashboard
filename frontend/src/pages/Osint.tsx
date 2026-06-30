@@ -41,9 +41,22 @@ interface ErrorField {
   error: string
 }
 
+interface TechData {
+  url: string | null
+  scheme: string | null
+  status: number | null
+  os: string | null
+  server: string | null
+  poweredBy: string | null
+  cdn: string | null
+  technologies: string[]
+  headers: Record<string, string>
+}
+
 interface OsintData {
   domain: string
   dns?: DnsData | ErrorField
+  tech?: TechData | ErrorField
   whois?: WhoisData | ErrorField
   crtsh?: CrtshData | ErrorField
   internetdb?: InternetDbData | ErrorField | null
@@ -86,6 +99,63 @@ function DnsCard({ dns }: { dns: DnsData | ErrorField | undefined }) {
           <DnsRow label="MX" values={dns.mx?.map((m) => `${m.exchange} (${m.priority})`)} />
           <DnsRow label="NS" values={dns.ns} />
           <DnsRow label="TXT" values={dns.txt} />
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function TechRow({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null
+  return (
+    <div className="flex gap-2 text-xs">
+      <span className="w-16 shrink-0 uppercase text-zinc-500">{label}</span>
+      <span className="font-mono break-all text-zinc-300">{value}</span>
+    </div>
+  )
+}
+
+function TechCard({ tech }: { tech: TechData | ErrorField | undefined }) {
+  if (!tech) return null
+  return (
+    <Card>
+      <SectionTitle>Server & technologies</SectionTitle>
+      {isError(tech) ? (
+        <ErrorLine message={tech.error} />
+      ) : (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <TechRow label="OS" value={tech.os} />
+            <TechRow label="Server" value={tech.server} />
+            <TechRow label="Powered by" value={tech.poweredBy} />
+            <TechRow label="CDN" value={tech.cdn} />
+            {tech.status != null && <TechRow label="HTTP" value={`${tech.status}${tech.scheme ? ` (${tech.scheme})` : ''}`} />}
+          </div>
+          {tech.technologies?.length > 0 && (
+            <div>
+              <div className="mb-1 text-xs uppercase tracking-wide text-zinc-500">Stack</div>
+              <div className="flex flex-wrap gap-1">
+                {tech.technologies.map((t) => (
+                  <Badge key={t} tone="indigo">{t}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          {tech.headers && Object.keys(tech.headers).length > 0 && (
+            <div>
+              <div className="mb-1 text-xs uppercase tracking-wide text-zinc-500">Headers</div>
+              <div className="space-y-0.5 font-mono text-xs text-zinc-500">
+                {Object.entries(tech.headers).map(([k, v]) => (
+                  <div key={k} className="break-all">
+                    <span className="text-zinc-400">{k}:</span> {v}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {!tech.os && !tech.server && (!tech.technologies || tech.technologies.length === 0) && (
+            <p className="text-xs text-zinc-500">No technology signals detected.</p>
+          )}
         </div>
       )}
     </Card>
@@ -253,6 +323,7 @@ export function Osint() {
             </div>
           )}
           <DnsCard dns={data.dns} />
+          <TechCard tech={data.tech} />
           <WhoisCard whois={data.whois} />
           <CrtshCard crtsh={data.crtsh} />
           <InternetDbCard idb={data.internetdb} />
