@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '../db/index'
 import { subdomains } from '../db/schema'
 
@@ -77,6 +77,17 @@ export function diffAndStore(
   return { newHosts, updatedCount, total: hosts.length }
 }
 
+/** Hosts that have never been HTTP-probed (e.g. discovered before probing existed). */
+export function listUnprobed(domainId: number, limit: number): string[] {
+  return db
+    .select({ host: subdomains.host })
+    .from(subdomains)
+    .where(and(eq(subdomains.domainId, domainId), isNull(subdomains.probedAt)))
+    .limit(limit)
+    .all()
+    .map((r) => r.host)
+}
+
 export interface ProbeData {
   ip: string | null
   status: number | null
@@ -96,6 +107,13 @@ export function updateProbe(domainId: number, host: string, p: ProbeData): void 
       scheme: p.scheme,
       probedAt: new Date(),
     })
+    .where(and(eq(subdomains.domainId, domainId), eq(subdomains.host, host)))
+    .run()
+}
+
+export function updateScreenshot(domainId: number, host: string, path: string): void {
+  db.update(subdomains)
+    .set({ screenshotPath: path, screenshotAt: new Date() })
     .where(and(eq(subdomains.domainId, domainId), eq(subdomains.host, host)))
     .run()
 }

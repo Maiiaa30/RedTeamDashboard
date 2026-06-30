@@ -10,7 +10,11 @@ ARG FFUF_VERSION=2.1.0
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
        python3 make g++ ca-certificates curl unzip nmap whois \
+       dnsutils chromium fonts-liberation \
   && rm -rf /var/lib/apt/lists/*
+
+# Where headless Chromium lives, for the screenshot job.
+ENV CHROMIUM_PATH=/usr/bin/chromium
 
 # Recon binaries are best-effort: a moved release URL must NOT fail the image
 # build. If a download fails, the app simply reports that tool as unavailable

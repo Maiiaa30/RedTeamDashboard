@@ -59,6 +59,8 @@ export const subdomains = sqliteTable(
     server: text('server'),
     scheme: text('scheme'),
     probedAt: integer('probed_at', { mode: 'timestamp_ms' }),
+    screenshotPath: text('screenshot_path'),
+    screenshotAt: integer('screenshot_at', { mode: 'timestamp_ms' }),
     firstSeen: integer('first_seen', { mode: 'timestamp_ms' }).notNull().default(now),
     lastSeen: integer('last_seen', { mode: 'timestamp_ms' }).notNull().default(now),
   },

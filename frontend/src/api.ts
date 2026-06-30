@@ -78,8 +78,18 @@ export interface Subdomain {
   server: string | null
   scheme: string | null
   probedAt: string | null
+  screenshotPath: string | null
+  screenshotAt: string | null
   firstSeen: string
   lastSeen: string
+}
+
+export interface ScreenshotEntry {
+  host: string
+  status: number | null
+  title: string | null
+  scheme: string | null
+  capturedAt: string | null
 }
 
 export interface OwaspCategory {
@@ -153,7 +163,7 @@ export interface MetaStatus {
   aiProvider: string
   scheduler: { enabled: boolean; intervalMinutes: number }
   discordConfigured: boolean
-  tools: { subfinder: boolean; nmap: boolean; nuclei: boolean; ffuf: boolean }
+  tools: { subfinder: boolean; nmap: boolean; nuclei: boolean; ffuf: boolean; chromium: boolean; dig: boolean }
   wordlists: Wordlist[]
 }
 
@@ -215,6 +225,11 @@ export const api = {
   // passive recon
   exposure: (id: number) => post<{ jobId: number }>(`/domains/${id}/exposure`),
   osint: (id: number) => post<{ jobId: number }>(`/domains/${id}/osint`),
+
+  // screenshots
+  captureScreenshots: (id: number) => post<{ jobId: number }>(`/domains/${id}/screenshots`),
+  screenshots: (id: number) => get<{ screenshots: ScreenshotEntry[] }>(`/domains/${id}/screenshots`),
+  screenshotUrl: (id: number, host: string) => `/api/domains/${id}/screenshot?host=${encodeURIComponent(host)}`,
 
   // active scans (gated server-side)
   nmap: (id: number, ports?: string) => post<{ jobId: number }>(`/domains/${id}/scan/nmap`, { ports }),

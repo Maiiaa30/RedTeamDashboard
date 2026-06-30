@@ -14,12 +14,22 @@ export interface ProbeResult {
   ip: string | null
   url: string | null
   cnames: string[]
+  loginHint: boolean
+  apiHint: boolean
 }
 
 const TIMEOUT_MS = 8_000
 const MAX_TITLE_BYTES = 64 * 1024
 
-async function fetchOnce(url: string): Promise<{ status: number; server: string | null; title: string | null } | null> {
+interface FetchInfo {
+  status: number
+  server: string | null
+  title: string | null
+  loginHint: boolean
+  apiHint: boolean
+}
+
+async function fetchOnce(url: string): Promise<FetchInfo | null> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
   try {
@@ -30,9 +40,11 @@ async function fetchOnce(url: string): Promise<{ status: number; server: string 
       headers: { 'User-Agent': 'recon-dashboard/0.1 (+probe)' },
     })
     const server = res.headers.get('server')
-    // Read only enough body to find <title>.
-    let title: string | null = null
     const ct = res.headers.get('content-type') ?? ''
+    let title: string | null = null
+    let loginHint = false
+    const apiHint = ct.includes('json') || ct.includes('graphql')
+
     if (ct.includes('html') && res.body) {
       const reader = res.body.getReader()
       const chunks: Uint8Array[] = []
@@ -52,10 +64,14 @@ async function fetchOnce(url: string): Promise<{ status: number; server: string 
       const html = Buffer.concat(chunks).toString('utf8')
       const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
       if (m) title = m[1].replace(/\s+/g, ' ').trim().slice(0, 200)
+      // Login heuristic: a password input, or login wording in the title.
+      loginHint =
+        /<input[^>]+type=["']?password/i.test(html) ||
+        /\b(sign[\s-]?in|log[\s-]?in)\b/i.test(title ?? '')
     } else if (res.body) {
       await res.body.cancel().catch(() => {})
     }
-    return { status: res.status, server, title }
+    return { status: res.status, server, title, loginHint, apiHint }
   } catch {
     return null
   } finally {
@@ -67,12 +83,20 @@ export async function probeHost(host: string): Promise<ProbeResult> {
   const dns = await resolveDns(host).catch(() => null)
   const ip = dns?.a[0] ?? null
   const cnames = dns?.cname ?? []
+  const apiByName = /^api[.-]/i.test(host) || /\bapi\b/i.test(host)
   for (const scheme of ['https', 'http'] as const) {
     const url = `${scheme}://${host}`
     const res = await fetchOnce(url)
     if (res) {
-      return { host, scheme, status: res.status, title: res.title, server: res.server, ip, url, cnames }
+      return {
+        host, scheme, status: res.status, title: res.title, server: res.server, ip, url, cnames,
+        loginHint: res.loginHint,
+        apiHint: res.apiHint || apiByName,
+      }
     }
   }
-  return { host, scheme: null, status: null, title: null, server: null, ip, url: null, cnames }
+  return {
+    host, scheme: null, status: null, title: null, server: null, ip, url: null, cnames,
+    loginHint: false, apiHint: apiByName,
+  }
 }

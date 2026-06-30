@@ -60,6 +60,8 @@ export function summarizeJob(type: string, result: any): string {
       return result.available === false ? 'nuclei not installed' : `${result.count ?? 0} finding(s)`
     case 'ffuf_scan':
       return result.available === false ? 'ffuf not installed' : `${result.hits ?? 0} hit(s)`
+    case 'screenshot':
+      return result.available === false ? 'chromium not installed' : `${result.captured ?? 0} captured`
     default:
       return ''
   }

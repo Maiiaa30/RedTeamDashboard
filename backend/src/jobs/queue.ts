@@ -9,6 +9,7 @@ export type JobType =
   | 'nmap_scan'
   | 'nuclei_scan'
   | 'ffuf_scan'
+  | 'screenshot'
 
 export function enqueueJob(type: JobType, params: unknown): number {
   const res = db

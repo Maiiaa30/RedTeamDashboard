@@ -1,11 +1,12 @@
-import { getDomain } from '../../domains/store'
+import { getDomain, updateDomain } from '../../domains/store'
 import { addScoredFinding } from '../../findings/score'
+import { safeJsonParse } from '../../util/json'
 import { alertSubdomains, type SubdomainAlert } from '../../notify/discord'
 import { crtShSubdomains } from '../../sources/crtsh'
 import { probeHost } from '../../sources/httpProbe'
 import { detectTakeover } from '../../sources/takeover'
 import { subfinderSubdomains } from '../../sources/subfinder'
-import { diffAndStore, updateProbe } from '../../subdomains/store'
+import { diffAndStore, listUnprobed, updateProbe } from '../../subdomains/store'
 import { mapLimit } from '../../util/async'
 import type { JobContext } from '../worker'
 
@@ -49,14 +50,19 @@ export async function subdomainDiscoveryHandler({ params, log }: JobContext) {
 
   const diff = diffAndStore(domainId, discovered)
 
-  // Lightweight HTTP probe of new hosts (status / title / server / ip), bounded
+  // Lightweight HTTP probe: all new hosts, plus back-fill any existing hosts
+  // that were never probed (e.g. discovered before probing existed). Bounded
   // concurrency. Enriches the stored row, the finding, and the Discord alert.
-  const toProbe = diff.newHosts.slice(0, MAX_PROBE)
+  const backfill = listUnprobed(domainId, MAX_PROBE).filter((h) => !diff.newHosts.includes(h))
+  const toProbe = [...diff.newHosts, ...backfill].slice(0, MAX_PROBE)
   const probes = await mapLimit(
     toProbe,
     PROBE_CONCURRENCY,
     (host) => probeHost(host),
-    { host: '', scheme: null, status: null, title: null, server: null, ip: null, url: null, cnames: [] },
+    {
+      host: '', scheme: null, status: null, title: null, server: null, ip: null, url: null,
+      cnames: [], loginHint: false, apiHint: false,
+    },
   )
   const probeByHost = new Map(probes.filter((p) => p.host).map((p) => [p.host, p]))
 
@@ -95,6 +101,21 @@ export async function subdomainDiscoveryHandler({ params, log }: JobContext) {
       },
       tags: ['new-subdomain'],
     })
+  }
+
+  // Auto-fill the OWASP app profile from recon signals (only ever turns flags
+  // ON; never clobbers the operator's manual choices). Makes OWASP filtering
+  // smart without manual checkboxes.
+  const detected: Record<string, boolean> = {}
+  if (probes.some((p) => p.loginHint)) detected.hasLogin = true
+  if (probes.some((p) => p.apiHint)) detected.hasApi = true
+  if (Object.keys(detected).length) {
+    const current = safeJsonParse<Record<string, boolean>>(domain.profile, {})
+    const merged = { ...current, ...detected }
+    if (JSON.stringify(merged) !== JSON.stringify(current)) {
+      updateDomain(domainId, { profile: merged })
+      log.info({ domain: domain.host, detected }, 'auto-updated OWASP app profile')
+    }
   }
 
   // Grouped, enriched Discord alert (silent if no webhook).

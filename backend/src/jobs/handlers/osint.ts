@@ -1,9 +1,11 @@
 import { getDomain } from '../../domains/store'
 import { addScoredFinding } from '../../findings/score'
+import { addFinding } from '../../findings/store'
 import { crtShSubdomains } from '../../sources/crtsh'
 import { resolveDns } from '../../sources/dns'
 import { internetDbLookup } from '../../sources/internetdb'
 import { whoisDomain } from '../../sources/whois'
+import { zoneTransfer } from '../../sources/zoneTransfer'
 import { isValidIp } from '../../util/validate'
 import type { JobContext } from '../worker'
 
@@ -39,6 +41,27 @@ export async function osintHandler({ params, log }: JobContext) {
     result.crtsh = { count: crt.length, sample: crt.slice(0, 50) }
   } catch (err) {
     result.crtsh = { error: err instanceof Error ? err.message : String(err) }
+  }
+
+  // DNS zone transfer (AXFR) against the zone's nameservers.
+  try {
+    const dns = result.dns as { ns?: string[] } | undefined
+    const ns = dns?.ns ?? []
+    if (ns.length) {
+      const zt = await zoneTransfer(host, ns)
+      result.zoneTransfer = zt
+      if (zt.vulnerable) {
+        addFinding({
+          domainId,
+          type: 'osint',
+          data: { kind: 'zone_transfer', domain: host, servers: zt.servers, sample: zt.sample },
+          tags: ['zone-transfer', 'misconfig', 'critical'],
+          score: 90,
+        })
+      }
+    }
+  } catch (err) {
+    result.zoneTransfer = { error: err instanceof Error ? err.message : String(err) }
   }
 
   // InternetDB for the apex's first IP

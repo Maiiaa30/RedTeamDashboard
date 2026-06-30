@@ -22,6 +22,13 @@
       "when": 1782816593514,
       "tag": "0002_cloudy_golden_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1782818962127,
+      "tag": "0003_eminent_ultron",
+      "breakpoints": true
     }
   ]
 }
