@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { api, type AttackPath, type Finding } from '../api'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { api, type AdviceAction, type AttackPath, type Finding, type IntelAdvice } from '../api'
 import { useApp, usePoll } from '../state'
 import { Badge, Card, Empty, PageHeader, ScoreBadge } from '../components/ui'
 import { riskFromScore, summarizeFinding, timeAgo, type RiskLevel } from '../lib/format'
@@ -10,6 +10,31 @@ export function Intel() {
   const { domains, selected } = useApp()
   const [findings, setFindings] = useState<Finding[]>([])
   const [paths, setPaths] = useState<AttackPath[]>([])
+  const [llmOn, setLlmOn] = useState(false)
+  const [advice, setAdvice] = useState<{ data: IntelAdvice | null; note: string } | null>(null)
+  const [adviceBusy, setAdviceBusy] = useState(false)
+
+  useEffect(() => {
+    api.meta().then((m) => setLlmOn(Boolean(m.llm?.enabled))).catch(() => {})
+  }, [])
+
+  // Clear a stale analysis when the operator switches targets.
+  useEffect(() => {
+    setAdvice(null)
+  }, [selected])
+
+  async function analyze() {
+    if (!selected || adviceBusy) return
+    setAdviceBusy(true)
+    try {
+      const r = await api.adviseIntel(selected.id)
+      setAdvice({ data: r.advice, note: r.note })
+    } catch (e) {
+      setAdvice({ data: null, note: e instanceof Error ? e.message : 'failed to analyze' })
+    } finally {
+      setAdviceBusy(false)
+    }
+  }
 
   // Scoped to the selected domain (matches the header target). No selection =
   // triage across all domains.
@@ -57,10 +82,26 @@ export function Intel() {
 
   return (
     <div>
-      <PageHeader
-        title="Intel"
-        subtitle={`Rules-based triage — ${selected ? selected.host : 'all domains'}`}
-      />
+      <div className="flex items-start justify-between gap-3">
+        <PageHeader
+          title="Intel"
+          subtitle={`Rules-based triage — ${selected ? selected.host : 'all domains'}`}
+        />
+        {llmOn && selected && (
+          <button
+            onClick={analyze}
+            disabled={adviceBusy}
+            className="mt-1 shrink-0 rounded-lg border border-accent-500/40 px-3 py-1.5 text-xs text-accent-fg transition hover:bg-accent-500/10 disabled:opacity-50"
+            title="Have the AI read all gathered recon for this target and suggest a prioritized testing plan (sends target + finding summaries)"
+          >
+            {adviceBusy ? 'Analyzing…' : '🧠 Analyze with AI'}
+          </button>
+        )}
+      </div>
+
+      {advice && selected && (
+        <AdvicePanel result={advice} domainId={selected.id} onDismiss={() => setAdvice(null)} />
+      )}
 
       {/* Headline signal tiles */}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -82,6 +123,201 @@ export function Intel() {
         </div>
       )}
     </div>
+  )
+}
+
+// Map an advisor action to the real (gated) scan/tool endpoint. confirm:true is
+// only sent AFTER the operator clicks Confirm in RunButton — the server still
+// enforces mode/scope/window/cooldown and audits the enqueue.
+async function runAdviceAction(domainId: number, a: AdviceAction): Promise<number> {
+  const target = a.target
+  switch (a.kind) {
+    case 'nmap':
+      return (await api.nmap(domainId, { target, confirm: true })).jobId
+    case 'nuclei':
+      return (await api.nuclei(domainId, { target, confirm: true })).jobId
+    case 'ffuf':
+      return (await api.ffuf(domainId, { target, confirm: true })).jobId
+    case 'naabu':
+    case 'dalfox':
+    case 'sslscan':
+    case 'katana':
+      return (await api.runTool(domainId, { tool: a.kind, target, confirm: true })).jobId
+    case 'owasp':
+      return (await api.runOwasp(domainId, undefined, undefined, true)).jobId
+  }
+}
+
+// One-click run with a mandatory confirm step (active scans on passive_only
+// targets require confirm; we make the operator opt in every time).
+function RunButton({ domainId, action }: { domainId: number; action: AdviceAction }) {
+  const [state, setState] = useState<'idle' | 'confirm' | 'running' | 'done' | 'error'>('idle')
+  const [msg, setMsg] = useState('')
+
+  async function go() {
+    setState('running')
+    try {
+      const jobId = await runAdviceAction(domainId, action)
+      setMsg(`queued job #${jobId}`)
+      setState('done')
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'failed to enqueue')
+      setState('error')
+    }
+  }
+
+  if (state === 'done') {
+    return <span className="text-[11px] text-emerald-400">✓ {action.kind} {msg}</span>
+  }
+  if (state === 'running') {
+    return <span className="text-[11px] text-zinc-400">running {action.kind}…</span>
+  }
+  if (state === 'confirm') {
+    return (
+      <span className="inline-flex flex-wrap items-center gap-1.5 text-[11px]">
+        <span className="text-amber-400">Run active {action.kind} on {action.target}?</span>
+        <button onClick={go} className="rounded bg-emerald-600/80 px-1.5 py-0.5 text-white transition hover:bg-emerald-600">
+          Confirm
+        </button>
+        <button onClick={() => setState('idle')} className="rounded bg-ink-800 px-1.5 py-0.5 text-zinc-300 transition hover:bg-ink-700">
+          Cancel
+        </button>
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-2">
+      <button
+        onClick={() => setState('confirm')}
+        className="rounded border border-emerald-600/40 px-2 py-0.5 text-[11px] text-emerald-300 transition hover:bg-emerald-600/10"
+        title={`Enqueue ${action.kind} against ${action.target} — active scan, you will confirm first`}
+      >
+        ▶ Run {action.kind}
+      </button>
+      {state === 'error' && <span className="text-[11px] text-red-400">{msg}</span>}
+    </span>
+  )
+}
+
+// AI advisor output: prioritized, structured testing plan rendered as cards.
+function AdvicePanel({
+  result,
+  domainId,
+  onDismiss,
+}: {
+  result: { data: IntelAdvice | null; note: string }
+  domainId: number
+  onDismiss: () => void
+}) {
+  const a = result.data
+  return (
+    <div className="mb-5 rounded-xl border border-accent-500/30 bg-ink-900/60 p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-wide text-accent-fg">🧠 AI analysis</span>
+        <button onClick={onDismiss} className="text-xs text-zinc-500 hover:text-zinc-300">
+          dismiss
+        </button>
+      </div>
+
+      {!a ? (
+        <p className="text-sm text-red-400">{result.note}</p>
+      ) : (
+        <div className="space-y-4">
+          {a.summary && <p className="text-sm leading-relaxed text-zinc-200">{a.summary}</p>}
+
+          {a.priorities.length > 0 && (
+            <AdviceSection title="🎯 Priority targets">
+              <div className="space-y-2">
+                {a.priorities.map((p, i) => (
+                  <div key={i} className="rounded-lg border border-hair/60 bg-ink-950/40 p-2.5">
+                    <div className="flex items-center gap-2">
+                      <Badge tone={p.risk === 'high' ? 'red' : p.risk === 'medium' ? 'amber' : 'zinc'}>
+                        {p.risk}
+                      </Badge>
+                      <span className="font-mono text-xs text-zinc-100">{p.target}</span>
+                    </div>
+                    {p.why && <p className="mt-1 text-xs text-zinc-400">{p.why}</p>}
+                    {p.tests.length > 0 && (
+                      <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                        {p.tests.map((t, j) => (
+                          <li key={j} className="rounded bg-ink-800/70 px-1.5 py-0.5 font-mono text-[11px] text-zinc-300">
+                            {t}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {p.action && (
+                      <div className="mt-2">
+                        <RunButton domainId={domainId} action={p.action} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </AdviceSection>
+          )}
+
+          {a.injection.length > 0 && (
+            <AdviceSection title="💉 Injection / XSS candidates">
+              <div className="space-y-1.5">
+                {a.injection.map((c, i) => (
+                  <div key={i} className="rounded-lg border border-hair/60 bg-ink-950/40 p-2.5 text-xs">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone="amber">{c.type}</Badge>
+                      <span className="break-all font-mono text-zinc-100">{c.target}</span>
+                      {c.param && <span className="font-mono text-[11px] text-accent-fg">param: {c.param}</span>}
+                    </div>
+                    {c.why && <p className="mt-1 text-zinc-400">{c.why}</p>}
+                    {c.action && (
+                      <div className="mt-2">
+                        <RunButton domainId={domainId} action={c.action} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </AdviceSection>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {a.quickWins.length > 0 && (
+              <AdviceSection title="⚡ Quick wins">
+                <ItemList items={a.quickWins} />
+              </AdviceSection>
+            )}
+            {a.deeperDigs.length > 0 && (
+              <AdviceSection title="🔬 Deeper digs">
+                <ItemList items={a.deeperDigs} />
+              </AdviceSection>
+            )}
+          </div>
+
+          <p className="text-[11px] text-amber-400/80">⚠ {result.note}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AdviceSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div>
+      <h3 className="mb-1.5 text-xs font-semibold text-zinc-300">{title}</h3>
+      {children}
+    </div>
+  )
+}
+
+function ItemList({ items }: { items: { item: string; why: string }[] }) {
+  return (
+    <ul className="space-y-1.5">
+      {items.map((it, i) => (
+        <li key={i} className="rounded-lg border border-hair/60 bg-ink-950/40 p-2 text-xs">
+          <span className="text-zinc-200">{it.item}</span>
+          {it.why && <span className="text-zinc-500"> — {it.why}</span>}
+        </li>
+      ))}
+    </ul>
   )
 }
 

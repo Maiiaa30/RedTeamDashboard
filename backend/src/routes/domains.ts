@@ -12,6 +12,8 @@ import { enqueueJob } from '../jobs/queue'
 import { acknowledgeNew, listSubdomains } from '../subdomains/store'
 import { domainOverviews } from '../domains/overview'
 import { correlateDomain } from '../domains/correlate'
+import { adviseIntel } from '../domains/advisor'
+import { llmEnabled } from '../util/llm'
 import { safeJsonParse } from '../util/json'
 
 export const domainRoutes: FastifyPluginAsync = async (app) => {
@@ -138,6 +140,19 @@ export const domainRoutes: FastifyPluginAsync = async (app) => {
     const id = Number(request.params.id)
     if (!getDomain(id)) return reply.code(404).send({ error: 'domain not found' })
     return { paths: correlateDomain(id) }
+  })
+
+  // AI intel advisor: the LLM reads the correlated recon + findings and returns a
+  // prioritized, structured testing plan (priorities / injection candidates /
+  // quick wins / deeper digs). Grounded in stored data; narrative-only, never
+  // touches scoring. Off unless an LLM endpoint is configured; fail-soft.
+  app.post<{ Params: { id: string } }>('/api/domains/:id/intel/advise', async (request, reply) => {
+    if (!llmEnabled()) return reply.code(503).send({ error: 'LLM not configured (set LLM_BASE_URL and LLM_MODEL)' })
+    const id = Number(request.params.id)
+    if (!getDomain(id)) return reply.code(404).send({ error: 'domain not found' })
+    const result = await adviseIntel(id)
+    if (!result) return reply.code(502).send({ error: 'the LLM did not return an analysis (check the endpoint/model)' })
+    return { advice: result.advice, model: result.model, note: 'AI draft — verify against the findings before acting.' }
   })
 
   // --- Subdomains for a domain ----------------------------------------------

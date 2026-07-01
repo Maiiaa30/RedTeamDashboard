@@ -208,6 +208,19 @@ export interface AttackPath {
   score: number
 }
 
+export type AdviceActionKind = 'nmap' | 'naabu' | 'nuclei' | 'ffuf' | 'dalfox' | 'sslscan' | 'katana' | 'owasp'
+export interface AdviceAction {
+  kind: AdviceActionKind
+  target: string
+}
+export interface IntelAdvice {
+  summary: string
+  priorities: { target: string; risk: 'high' | 'medium' | 'low'; why: string; tests: string[]; action?: AdviceAction }[]
+  injection: { target: string; param?: string; type: string; why: string; action?: AdviceAction }[]
+  quickWins: { item: string; why: string }[]
+  deeperDigs: { item: string; why: string }[]
+}
+
 export interface MetaStatus {
   scorer: string
   aiProvider: string
@@ -341,6 +354,9 @@ export const api = {
 
   // AI-drafted report narrative (optional; only when llm.enabled)
   generateNarrative: (id: number) => post<{ narrative: string; model: string; note: string }>(`/domains/${id}/report/narrative`),
+
+  // AI intel advisor: structured, prioritized testing plan (optional; llm.enabled)
+  adviseIntel: (id: number) => post<{ advice: IntelAdvice; model: string; note: string }>(`/domains/${id}/intel/advise`),
 
   // subdomains
   subdomains: (id: number) => get<{ subdomains: Subdomain[] }>(`/domains/${id}/subdomains`),
