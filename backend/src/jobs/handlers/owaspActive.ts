@@ -1,6 +1,7 @@
 import { getDomain } from '../../domains/store'
 import { addScoredFinding } from '../../findings/score'
 import { listFindings } from '../../findings/store'
+import { jsRecon } from '../../sources/jsRecon'
 import { runActiveChecks, type OwaspChecksOptions } from '../../owasp/activeChecks'
 import { safeJsonParse } from '../../util/json'
 import { hostBelongsToDomain, isValidDomain, isValidHostname } from '../../util/validate'
@@ -26,25 +27,33 @@ function paramsFromUrls(urls: string[]): string[] {
 // by Wayback / Common Crawl / katana / ffuf / prior findings. This is what makes
 // the checks "per target" — XSS/redirect probes hit parameters the app uses.
 function discoveredParamsFor(domainId: number): string[] {
+  return paramsFromUrls(knownUrlsFor(domainId)).slice(0, 40)
+}
+
+// All URL strings this target is known to have (wayback / commoncrawl / katana /
+// prior findings) — the corpus for both param mining and JS recon.
+function knownUrlsFor(domainId: number): string[] {
   const findings = listFindings({ domainId, limit: 2000 })
   const urls: string[] = []
   for (const f of findings) {
     const d = f.data as any
     if (!d) continue
     if (Array.isArray(d?.wayback?.withParams)) urls.push(...d.wayback.withParams)
+    if (Array.isArray(d?.wayback?.sample)) urls.push(...d.wayback.sample)
     if (Array.isArray(d?.commoncrawl?.withParams)) urls.push(...d.commoncrawl.withParams)
+    if (Array.isArray(d?.commoncrawl?.sample)) urls.push(...d.commoncrawl.sample)
     if (f.type === 'tool' && Array.isArray(d.items)) urls.push(...d.items.filter((x: unknown) => typeof x === 'string'))
     if (typeof d.url === 'string') urls.push(d.url)
     if (typeof d.matched === 'string') urls.push(d.matched)
   }
-  return paramsFromUrls(urls).slice(0, 40)
+  return [...new Set(urls)]
 }
 
 // OWASP active checks: direct HTTP probes (headers, sensitive files, reflected
 // XSS, open redirect, CORS, TRACE, directory listing) that don't depend on
 // nuclei. Authorization (active_authorized OR confirm) is enforced at the route
 // before enqueue; here we re-check the target belongs to the domain.
-export async function owaspActiveHandler({ params, log }: JobContext) {
+export async function owaspActiveHandler({ params, log, progress }: JobContext) {
   const domainId = Number(params.domainId)
   const domain = getDomain(domainId)
   if (!domain) throw new Error(`domain ${domainId} not found`)
@@ -56,6 +65,47 @@ export async function owaspActiveHandler({ params, log }: JobContext) {
   }
   const scheme = params.scheme === 'http' ? 'http' : 'https'
 
+  // JS recon: mine discovered .js files for endpoints, params and leaked secrets.
+  // The params feed straight back into the target-aware checks below.
+  let jsParams: string[] = []
+  try {
+    progress(`mining JS files on ${target}`)
+    const js = await jsRecon(knownUrlsFor(domainId))
+    jsParams = js.params
+    if (js.secrets.length) {
+      await addScoredFinding({
+        domainId,
+        type: 'tool',
+        data: {
+          tool: 'jsrecon',
+          target,
+          severity: 'high',
+          title: `${js.secrets.length} potential secret(s) in JavaScript`,
+          detail: `Scanned ${js.filesScanned} JS file(s) — verify each match`,
+          items: js.secrets.map((s) => `${s.pattern}: ${s.sample} (${s.file})`),
+        },
+        tags: ['jsrecon', 'secret', 'needs-review', 'sev:high'],
+      })
+    }
+    if (js.endpoints.length) {
+      await addScoredFinding({
+        domainId,
+        type: 'tool',
+        data: {
+          tool: 'jsrecon',
+          target,
+          severity: 'info',
+          title: `${js.endpoints.length} endpoint(s) referenced in JavaScript`,
+          detail: `From ${js.filesScanned} JS file(s)`,
+          items: js.endpoints.slice(0, 100),
+        },
+        tags: ['jsrecon', 'endpoints', 'sev:info'],
+      })
+    }
+  } catch (err) {
+    log.warn({ err }, 'js recon failed')
+  }
+
   // Per-target tuning: operator's custom config + auto-discovered params.
   const cfg = safeJsonParse<OwaspChecksOptions>(domain.owaspConfig, {})
   const opts: OwaspChecksOptions = {
@@ -64,9 +114,10 @@ export async function owaspActiveHandler({ params, log }: JobContext) {
     redirectParams: cfg.redirectParams,
     sensitivePaths: cfg.sensitivePaths,
     authHeader: cfg.authHeader,
-    discoveredParams: discoveredParamsFor(domainId),
+    discoveredParams: [...new Set([...discoveredParamsFor(domainId), ...jsParams])],
   }
 
+  progress(`running active checks on ${target}`)
   const { findings, reachable, targetedParams } = await runActiveChecks(scheme, target, opts)
   if (!reachable) {
     log.warn({ target }, 'owasp active checks: target not reachable / internal')

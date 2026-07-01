@@ -60,8 +60,9 @@ interface WaybackData {
 }
 
 interface CommonCrawlData {
-  index: string
+  indexes: string[]
   count: number
+  truncated?: boolean
   sample: string[]
   withParams: string[]
 }
@@ -295,7 +296,7 @@ function CommonCrawlCard({ cc }: { cc: CommonCrawlData | ErrorField | undefined 
       ) : (
         <div className="space-y-2">
           <div className="text-xs text-zinc-500">
-            {cc.count} URL(s) · {cc.withParams.length} with parameters{cc.index ? ` · ${cc.index}` : ''}
+            {cc.count} URL(s){cc.truncated ? '+' : ''} · {cc.withParams.length} with parameters{cc.indexes?.length ? ` · ${cc.indexes.length} crawl(s)` : ''}
           </div>
           <UrlListBlock urls={cc.withParams.length ? cc.withParams : cc.sample} label={cc.withParams.length ? 'URLs with parameters' : 'Sample'} />
         </div>

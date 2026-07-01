@@ -39,25 +39,51 @@ async function readCapped(res: Response): Promise<string> {
   return Buffer.concat(chunks).toString('utf8')
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+// Parse a Retry-After header (delta-seconds or HTTP-date) into ms, capped so a
+// hostile/broken header can't blow the job's time budget.
+function retryAfterMs(header: string | null, attempt: number): number {
+  const CAP = 30_000
+  if (header) {
+    const secs = Number(header)
+    if (Number.isFinite(secs)) return Math.min(Math.max(0, secs * 1000), CAP)
+    const date = Date.parse(header)
+    if (!Number.isNaN(date)) return Math.min(Math.max(0, date - Date.now()), CAP)
+  }
+  // Exponential-ish default with light jitter when no header is supplied.
+  return Math.min(1000 * (attempt + 1) + Math.floor((attempt + 1) * 250), CAP)
+}
+
 export async function getText(url: string, opts: GetOptions = {}): Promise<string> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? DEFAULT_TIMEOUT_MS)
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': USER_AGENT,
-        ...(opts.accept ? { Accept: opts.accept } : {}),
-      },
-      redirect: 'follow',
-    })
-    const text = await readCapped(res)
-    if (!res.ok) {
-      throw new HttpError(res.status, `HTTP ${res.status} for ${url}`)
+  const MAX_RETRIES = 2 // for 429s only — keyless public APIs rate-limit hard
+  for (let attempt = 0; ; attempt++) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? DEFAULT_TIMEOUT_MS)
+    try {
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': USER_AGENT,
+          ...(opts.accept ? { Accept: opts.accept } : {}),
+        },
+        redirect: 'follow',
+      })
+      if (res.status === 429 && attempt < MAX_RETRIES) {
+        const wait = retryAfterMs(res.headers.get('retry-after'), attempt)
+        await res.body?.cancel().catch(() => {})
+        clearTimeout(timer)
+        await sleep(wait)
+        continue
+      }
+      const text = await readCapped(res)
+      if (!res.ok) {
+        throw new HttpError(res.status, `HTTP ${res.status} for ${url}`)
+      }
+      return text
+    } finally {
+      clearTimeout(timer)
     }
-    return text
-  } finally {
-    clearTimeout(timer)
   }
 }
 

@@ -1,6 +1,7 @@
 import { getDomain } from '../../domains/store'
 import { addScoredFinding } from '../../findings/score'
 import { addFinding } from '../../findings/store'
+import { enumerateBuckets } from '../../sources/buckets'
 import { certSpotterSubdomains } from '../../sources/certspotter'
 import { crtShSubdomains } from '../../sources/crtsh'
 import { resolveDns } from '../../sources/dns'
@@ -115,6 +116,32 @@ export async function osintHandler({ params, log }: JobContext) {
   } catch (err) {
     result.tech = { error: err instanceof Error ? err.message : String(err) }
     log.warn({ host, err }, 'osint fingerprint failed')
+  }
+
+  // Cloud storage buckets derived from the domain name (keyless; requests go to
+  // AWS/GCP/Azure, not the target). Open buckets are high-value findings.
+  try {
+    const buckets = await enumerateBuckets(host)
+    const open = buckets.filter((b) => b.state === 'open')
+    const locked = buckets.filter((b) => b.state === 'locked')
+    result.buckets = { open: open.map((b) => b.url), locked: locked.map((b) => b.url) }
+    for (const b of open) {
+      await addScoredFinding({
+        domainId,
+        type: 'tool',
+        data: {
+          tool: 'bucket',
+          target: b.name,
+          severity: 'high',
+          title: `Open ${b.provider.toUpperCase()} bucket: ${b.name}`,
+          detail: `Publicly listable/readable at ${b.url}`,
+          items: [b.url],
+        },
+        tags: ['bucket', b.provider, 'exposure', 'sev:high'],
+      })
+    }
+  } catch (err) {
+    result.buckets = { error: err instanceof Error ? err.message : String(err) }
   }
 
   await addScoredFinding({ domainId, type: 'osint', data: result, tags: ['osint'] })

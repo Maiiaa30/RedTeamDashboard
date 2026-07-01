@@ -1,10 +1,12 @@
 import { getDomain } from '../../domains/store'
 import { addScoredFinding } from '../../findings/score'
+import { asnLookup } from '../../sources/asn'
 import { enrichCves } from '../../sources/cvedb'
 import { resolveDns } from '../../sources/dns'
+import { grabTlsCert } from '../../sources/tlsCert'
 import { internetDbLookup } from '../../sources/internetdb'
-import { listSubdomains } from '../../subdomains/store'
-import { isValidIp } from '../../util/validate'
+import { diffAndStore, listSubdomains } from '../../subdomains/store'
+import { hostBelongsToDomain, isValidIp } from '../../util/validate'
 import type { JobContext } from '../worker'
 
 const MAX_HOSTS = 150
@@ -36,6 +38,9 @@ export async function exposureHandler({ params, log }: JobContext) {
     if (ipToHosts.size >= MAX_IPS) break
   }
 
+  // ASN/BGP enrichment for every resolved IP in one bulk Team Cymru query.
+  const asnMap = await asnLookup([...ipToHosts.keys()])
+
   const records: unknown[] = []
   let exposedIps = 0
 
@@ -46,6 +51,7 @@ export async function exposureHandler({ params, log }: JobContext) {
       exposedIps++
 
       const cves = rec.vulns.length ? await enrichCves(rec.vulns) : []
+      const asn = asnMap.get(ip) ?? null
       const finding = {
         ip,
         host: [...hostSet][0],
@@ -55,12 +61,27 @@ export async function exposureHandler({ params, log }: JobContext) {
         tags: rec.tags,
         vulns: rec.vulns,
         cves,
+        asn,
       }
       records.push(finding)
-      await addScoredFinding({ domainId, type: 'exposure', data: finding, tags: ['exposure'] })
+      const asnTags = asn?.asn ? [`asn:${asn.asn}`] : []
+      await addScoredFinding({ domainId, type: 'exposure', data: finding, tags: ['exposure', ...asnTags] })
     } catch (err) {
       log.warn({ ip, err }, 'internetdb lookup failed')
     }
+  }
+
+  // TLS certificate SAN harvest on the apex — SANs frequently reveal sibling
+  // hostnames; in-scope ones are folded into the subdomain inventory.
+  let cert = null
+  try {
+    cert = await grabTlsCert(domain.host)
+    if (cert?.sans.length) {
+      const inScope = cert.sans.filter((h) => h === domain.host || hostBelongsToDomain(h, domain.host))
+      if (inScope.length) diffAndStore(domainId, inScope.map((host) => ({ host, source: 'tls-cert' })))
+    }
+  } catch (err) {
+    log.warn({ err }, 'tls cert grab failed')
   }
 
   return {
@@ -68,6 +89,8 @@ export async function exposureHandler({ params, log }: JobContext) {
     hostsChecked: hosts.length,
     ipsResolved: ipToHosts.size,
     exposedIps,
+    asns: [...new Set([...asnMap.values()].map((a) => a.asn).filter(Boolean))],
+    cert: cert ? { sans: cert.sans.length, fingerprint256: cert.fingerprint256, issuer: cert.issuer, validTo: cert.validTo } : null,
     records,
   }
 }
