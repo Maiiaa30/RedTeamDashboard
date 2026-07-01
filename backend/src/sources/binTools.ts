@@ -45,10 +45,17 @@ export async function runKatana(scheme: string, host: string): Promise<ToolFindi
 
 // --- naabu (fast port scan) --------------------------------------------------
 export async function runNaabu(host: string): Promise<ToolFinding | null> {
-  // Connect scan (-s c) needs no raw sockets; top-1000 ports.
-  const { stdout } = await run('naabu', ['-host', host, '-s', 'c', '-tp', '1000', '-silent', '-nc'], {
-    timeoutMs: 300_000,
-  })
+  // Connect scan (-s c) needs no raw sockets; top-1000 ports. naabu can exit
+  // non-zero on its internal enumeration timeout, so keep any partial output.
+  let stdout = ''
+  try {
+    const res = await run('naabu', ['-host', host, '-s', 'c', '-tp', '1000', '-silent', '-nc'], { timeoutMs: 300_000 })
+    stdout = res.stdout
+  } catch (err) {
+    const e = err as { stdout?: string; code?: string }
+    if (e.code === 'ENOENT') throw err
+    stdout = e.stdout ?? ''
+  }
   const ports = [...new Set(linesOf(stdout).map((l) => Number(l.split(':').pop())).filter((p) => Number.isFinite(p)))].sort(
     (a, b) => a - b,
   )
